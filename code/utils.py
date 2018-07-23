@@ -3,7 +3,7 @@ import numpy.random as rn
 import sktensor as skt
 
 import pickle
-from path import path
+from scriptine import path
 from time import sleep
 
 
