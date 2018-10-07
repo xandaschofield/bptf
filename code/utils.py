@@ -3,7 +3,7 @@ import numpy.random as rn
 import sktensor as skt
 
 import pickle
-from scriptine import path
+from pathlib import Path as path
 from time import sleep
 
 
@@ -237,5 +237,5 @@ def serialize_bptf(model, out_dir, num=None, desc=None):
              gamma_DK_M=model.gamma_DK_M,
              delta_DK_M=model.delta_DK_M,
              beta_M=model.beta_M)
-    print out_path
+    print(out_path)
     return num

@@ -20,7 +20,7 @@ from scipy.special import gammaln, psi
 import sktensor as skt
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from scriptine import path
+from pathlib import Path as path
 from argparse import ArgumentParser
 from utils import is_binary, parafac, preprocess, serialize_bptf, sp_uttkrp
 
@@ -32,7 +32,7 @@ def _gamma_bound_term(pa, pb, qa, qb):
 
 class BPPTF(BaseEstimator, TransformerMixin):
     def __init__(self, n_modes=4, n_components=100,  max_iter=200, tol=0.0001,
-                 smoothness=100, verbose=True, alpha=0.1, debug=False):
+                 smoothness=100, verbose=True, alpha=0.1, debug=False, true_mu=None):
         """Bayesian Private Poisson Tensor Factorization.
 
         Arguments
@@ -64,6 +64,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
         debug : bool
             Whether or not to run tests on the code, fixing parameters and
             testing the ELBO.
+
+        true_mu : np.array
+            If data was generated synthetically, provides the true value of the Poisson priors.
         """
 
         self.n_modes = n_modes
@@ -91,6 +94,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
         # Inference cache
         self.sum_theta_E_MK = np.empty((self.n_modes, self.n_components), dtype=float)
         self.nz_recon_I = None
+        
+        # For synthetic testing
+        self.true_mu = true_mu
 
     def _reconstruct_nz(self, subs_I_M):
         """Computes the reconstruction for only non-zero entries.
@@ -105,7 +111,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
         I = subs_I_M[0].size
         K = self.n_components
         nz_recon_IK = np.ones((I, K))
-        for m in xrange(self.n_modes):
+        for m in range(self.n_modes):
             nz_recon_IK *= self.theta_G_DK_M[m][subs_I_M[m], :]
         self.nz_recon_I = nz_recon_IK.sum(axis=1)
         return self.nz_recon_I
@@ -172,7 +178,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
         bound += (vals_I * np.log(nz_recon_I)).sum()
 
         K = self.n_components
-        for m in xrange(self.n_modes):
+        for m in range(self.n_modes):
             bound += _gamma_bound_term(pa=self.alpha,
                                        pb=self.alpha * self.beta_M[m],
                                        qa=self.theta_shp_DK_M[m],
@@ -221,7 +227,6 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
     def _init_privacy_variables(self, mode_dims, priv):
         self.y_E_DIMS = np.empty(mode_dims + (self.n_components,), dtype=int)
-        self.g_pos_E_DIMS = np.empty(mode_dims)
         self.min_DIMS = np.empty(mode_dims, dtype=int)
         K = self.n_components
         s = self.smoothness
@@ -263,19 +268,15 @@ class BPPTF(BaseEstimator, TransformerMixin):
         self.theta_rte_DK_M[m][:, :] = self.alpha * self.beta_M[m] + uttkrp_DK
 
     def _update_y(self, mask=None):
-
         self.y_E_DIMS = self.y_pos_E_DIMS * self.mu_G_DIMS
+        print('y_E', self.y_E_DIMS.max(), self.y_E_DIMS.min())
 
     def _update_lam_shp(self, mask=None):
-        # This needs fixing
         lam_shp_2DIMS_old = self.lam_shp_2DIMS.copy()
         self.lam_shp_2DIMS[0] = self.g_pos_E_DIMS + 1
         self.lam_shp_2DIMS[1] = self.g_neg_E_DIMS + 1
         if mask is not None:
             self.lam_shp_2DIMS *= mask
-        if self.verbose:
-            print 'Lambda positive change:', np.mean(np.abs(lam_shp_2DIMS_old[0] - self.lam_shp_2DIMS[0]))
-            print 'Lambda negative change:', np.mean(np.abs(lam_shp_2DIMS_old[1] - self.lam_shp_2DIMS[1]))
 
     def _update_mu(self, mask=None):
         self.mu_G_DIMS = parafac(self.theta_E_DK_M)
@@ -290,10 +291,13 @@ class BPPTF(BaseEstimator, TransformerMixin):
         mu_V_DIMS = (
             parafac(np.square(self.theta_E_DK_M) + self.theta_V_DK_M)
             - parafac(np.square(self.theta_E_DK_M)))
+        print('mu_V_DIMS', np.max(mu_V_DIMS), np.min(mu_V_DIMS))
                 # Compute geometric expectation of mu (based on theta)
         lam_G_2DIMS = self.lam_shp_2DIMS / self.lam_rte_DIMS
+        print('lam_G', lam_G_2DIMS.max(), lam_G_2DIMS.min())
         lam_pos_V_DIMS = self.lam_shp_2DIMS[0] / np.square(self.lam_rte_DIMS)
-        
+        print('lam_G', lam_G_2DIMS.max(), lam_G_2DIMS.min())
+
         # Approximating a geometric expectation using the delta method:
         # E[f(x)] ~= f(E[x]) + f"(E[x])V[x]/2 
         lam_pos_plus_mu_G_DIMS = (
@@ -342,21 +346,23 @@ class BPPTF(BaseEstimator, TransformerMixin):
         if self.debug:
             curr_elbo = self._test_elbo(data)
         else:
-            curr_elbo = self._elbo(data, mask=mask)
+            # curr_elbo = self._elbo(data, mask=mask)
+            curr_elbo = -1
         if self.verbose:
-            print 'ITERATION %d:\t'\
+            print('ITERATION %d:\t'\
                   'Time: %f\t'\
                   'Objective: %.2f\t'\
                   'Change: %.5e\t'\
-                % (0, 0.0, curr_elbo, np.nan)
+                % (0, 0.0, curr_elbo, np.nan))
 
-        for itn in xrange(self.max_iter):
+        for itn in range(self.max_iter):
             s = time.time()
             for m in modes:
                 self._update_mu(mask=mask)
-                self._update_mins(mask=mask)
-                self._update_y(mask=mask)
-                self._update_lam_shp(mask=mask)
+                if itn == 0:
+                    self._update_mins(mask=mask)
+                    self._update_y(mask=mask)
+                    self._update_lam_shp(mask=mask)
                 self._update_theta_gamma(m)
                 self._update_theta_delta(m, mask)
                 self._update_cache(m)
@@ -367,20 +373,24 @@ class BPPTF(BaseEstimator, TransformerMixin):
             if self.debug:
                 bound = self._test_elbo(data)
             else:
-                bound = self._elbo(data, mask=mask)
+                # bound = self._elbo(data, mask=mask)
+                bound = -1
             delta = (bound - curr_elbo) / abs(curr_elbo)
             e = time.time() - s
             if self.verbose:
-                print 'ITERATION %d:\t'\
+                print('ITERATION %d:\t'\
                       'Time: %f\t'\
                       'Objective: %.2f\t'\
                       'Change: %.5e\t'\
-                      % (itn+1, e, bound, delta)
-            if not (delta >= 0.0):
-                raise Exception('\n\nNegative ELBO improvement: %e\n' % delta)
+                      % (itn+1, e, bound, delta))
+            if self.true_mu is not None:
+                mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
+                print('Mu MAE: %f' % mu_diff)
+            # if not (delta >= 0.0):
+            #     raise Exception('\n\nNegative ELBO improvement: %e\n' % delta)
             curr_elbo = bound
-            if delta < self.tol:
-                break
+            # if delta < self.tol:
+            #     break
 
     def set_component(self, m, theta_E_DK, theta_G_DK, theta_shp_DK, theta_rte_DK):
         assert theta_E_DK.shape[1] == self.n_components
@@ -441,6 +451,10 @@ class BPPTF(BaseEstimator, TransformerMixin):
     @property
     def g_neg_E_DIMS(self):
         return self.min_DIMS - self.data_DIMS.toarray().clip(None, 0)
+
+    @property
+    def g_pos_E_DIMS(self):
+        return self.y_pos_E_DIMS - self.y_E_DIMS
 
     def transform(self, modes, data, mask=None, version='geometric'):
         """Transform new data given a pre-trained model."""
