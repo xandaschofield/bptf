@@ -268,20 +268,17 @@ class BPPTF(BaseEstimator, TransformerMixin):
         self.theta_rte_DK_M[m][:, :] = self.alpha * self.beta_M[m] + uttkrp_DK
 
     def _update_y(self, mask=None):
-        self.y_E_DIMS = self.y_pos_E_DIMS * self.mu_G_DIMS
+        lam_pos_E_DIMS = self.lam_shp_2DIMS[0] / self.lam_rte_DIMS[0]
+        self.y_E_DIMS = self.y_pos_E_DIMS * self.mu_G_DIMS / (self.mu_G_DIMS + lam_pos_E_DIMS)
         print('y_E', self.y_E_DIMS.max(), self.y_E_DIMS.min())
 
     def _update_lam_shp(self, mask=None):
         lam_shp_2DIMS_old = self.lam_shp_2DIMS.copy()
         self.lam_shp_2DIMS[0] = self.g_pos_E_DIMS + 1
         self.lam_shp_2DIMS[1] = self.g_neg_E_DIMS + 1
-        if mask is not None:
-            self.lam_shp_2DIMS *= mask
 
     def _update_mu(self, mask=None):
         self.mu_G_DIMS = parafac(self.theta_E_DK_M)
-        if mask is not None:
-            self.mu_G_DIMS *= mask
 
     def _update_mins(self, mask=None):
         """Updates the minimum of g- and y+ (m) sampled from a Bessel.
@@ -332,7 +329,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
     def _update_beta(self, m):
         self.beta_M[m] = 1. / self.theta_E_DK_M[m].mean()
 
-    def _update(self, data, mask=None, modes=None):
+    def _update(self, data, priv=None, mask=None, modes=None):
         if modes is not None:
             modes = list(set(modes))
         else:
@@ -342,6 +339,11 @@ class BPPTF(BaseEstimator, TransformerMixin):
         for m in range(self.n_modes):
             if m not in modes:
                 self._clamp_component(m)
+
+        if priv is not None and priv == 0:
+            self.y_E_DIMS = self.data_DIMS
+            if isinstance(self.data_DIMS, skt.sptensor):
+                self.y_E_DIMS = self.y_E_DIMS.toarray()
 
         if self.debug:
             curr_elbo = self._test_elbo(data)
@@ -357,12 +359,12 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         for itn in range(self.max_iter):
             s = time.time()
+            self._update_mu(mask=mask)
+            if priv is None or priv > 0:
+                self._update_mins(mask=mask)
+                self._update_y(mask=mask)
+                self._update_lam_shp(mask=mask)
             for m in modes:
-                self._update_mu(mask=mask)
-                if itn == 0:
-                    self._update_mins(mask=mask)
-                    self._update_y(mask=mask)
-                    self._update_lam_shp(mask=mask)
                 self._update_theta_gamma(m)
                 self._update_theta_delta(m, mask)
                 self._update_cache(m)
@@ -430,9 +432,12 @@ class BPPTF(BaseEstimator, TransformerMixin):
     def fit(self, data, priv, mask=None):
         assert data.ndim == self.n_modes
         data = preprocess(data)
-        self.data_DIMS = skt.sptensor(
-            tuple((np.copy(ds) for ds in data.subs)),
-            data.vals.copy())
+        if isinstance(data, skt.dtensor):
+            self.data_DIMS = data.copy()
+        else:
+            self.data_DIMS = skt.sptensor(
+                tuple((np.copy(ds) for ds in data.subs)),
+                data.vals.copy())
 
         if mask is not None:
             mask = preprocess(mask)
@@ -440,8 +445,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
             assert is_binary(mask)
             assert np.issubdtype(mask.dtype, int)
         self._init_all_components(data.shape)
-        self._init_privacy_variables(data.shape, priv)
-        self._update(data, mask=mask)
+        if priv > 0:
+            self._init_privacy_variables(data.shape, priv)
+        self._update(data, priv=priv, mask=mask)
         return self
 
     @property
