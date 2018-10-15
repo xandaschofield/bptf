@@ -278,7 +278,13 @@ class BPPTF(BaseEstimator, TransformerMixin):
         self.lam_shp_2DIMS[1] = self.g_neg_E_DIMS + 1
 
     def _update_mu(self, mask=None):
-        self.mu_G_DIMS = parafac(self.theta_E_DK_M)
+        parafac_theta = parafac(self.theta_E_DK_M)
+        first_order_term = np.log(parafac_theta)
+        second_order_term = -parafac(self.theta_V_DK_M) / (2 * np.square(parafac_theta))
+        self.mu_G_DIMS = np.exp(first_order_term + second_order_term)
+        if mask is not None:
+            self.mu_G_DIMS *= mask
+
 
     def _update_mins(self, mask=None):
         """Updates the minimum of g- and y+ (m) sampled from a Bessel.
@@ -340,9 +346,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
             if m not in modes:
                 self._clamp_component(m)
 
-        if priv is not None and priv == 0:
-            self.y_E_DIMS = self.data_DIMS
-            if isinstance(self.data_DIMS, skt.sptensor):
+        if priv == 0:
+            self.y_E_DIMS = data
+            if isinstance(data, skt.sptensor):
                 self.y_E_DIMS = self.y_E_DIMS.toarray()
 
         if self.debug:
