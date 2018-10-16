@@ -71,6 +71,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         self.n_modes = n_modes
         self.n_components = n_components
+        self.min_iter = 1
         self.max_iter = max_iter
         self.tol = tol
         self.smoothness = smoothness
@@ -270,7 +271,6 @@ class BPPTF(BaseEstimator, TransformerMixin):
     def _update_y(self, mask=None):
         lam_pos_E_DIMS = self.lam_shp_2DIMS[0] / self.lam_rte_DIMS[0]
         self.y_E_DIMS = self.y_pos_E_DIMS * self.mu_G_DIMS / (self.mu_G_DIMS + lam_pos_E_DIMS)
-        print('y_E', self.y_E_DIMS.max(), self.y_E_DIMS.min())
 
     def _update_lam_shp(self, mask=None):
         lam_shp_2DIMS_old = self.lam_shp_2DIMS.copy()
@@ -294,12 +294,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
         mu_V_DIMS = (
             parafac(np.square(self.theta_E_DK_M) + self.theta_V_DK_M)
             - parafac(np.square(self.theta_E_DK_M)))
-        print('mu_V_DIMS', np.max(mu_V_DIMS), np.min(mu_V_DIMS))
                 # Compute geometric expectation of mu (based on theta)
         lam_G_2DIMS = self.lam_shp_2DIMS / self.lam_rte_DIMS
-        print('lam_G', lam_G_2DIMS.max(), lam_G_2DIMS.min())
         lam_pos_V_DIMS = self.lam_shp_2DIMS[0] / np.square(self.lam_rte_DIMS)
-        print('lam_G', lam_G_2DIMS.max(), lam_G_2DIMS.min())
 
         # Approximating a geometric expectation using the delta method:
         # E[f(x)] ~= f(E[x]) + f"(E[x])V[x]/2 
@@ -314,7 +311,10 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         # Bessel parameters a and nu
         a_DIMS = 2 * np.sqrt(lam_G_2DIMS[1] * lam_pos_plus_mu_G_DIMS)
-        nu_DIMS = self.data_DIMS.toarray()
+        if isinstance(self.data_DIMS, skt.dtensor):
+            nu_DIMS = self.data_DIMS.copy()
+        else:
+            nu_DIMS = self.data_DIMS.toarray()
 
         # Formula for the mode of the Bessel
         self.min_DIMS = np.floor_divide(
@@ -356,6 +356,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
         else:
             # curr_elbo = self._elbo(data, mask=mask)
             curr_elbo = -1
+        if self.true_mu is not None:
+            mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
+    
         if self.verbose:
             print('ITERATION %d:\t'\
                   'Time: %f\t'\
@@ -383,7 +386,10 @@ class BPPTF(BaseEstimator, TransformerMixin):
             else:
                 # bound = self._elbo(data, mask=mask)
                 bound = -1
-            delta = (bound - curr_elbo) / abs(curr_elbo)
+            if self.true_mu is not None:
+                old_mu_diff = mu_diff
+                mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
+            delta = (old_mu_diff - mu_diff)
             e = time.time() - s
             if self.verbose:
                 print('ITERATION %d:\t'\
@@ -391,14 +397,13 @@ class BPPTF(BaseEstimator, TransformerMixin):
                       'Objective: %.2f\t'\
                       'Change: %.5e\t'\
                       % (itn+1, e, bound, delta))
-            if self.true_mu is not None:
-                mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
+            
                 print('Mu MAE: %f' % mu_diff)
-            # if not (delta >= 0.0):
+            # if not (delta >= -self.tol):
             #     raise Exception('\n\nNegative ELBO improvement: %e\n' % delta)
             curr_elbo = bound
-            # if delta < self.tol:
-            #     break
+            if itn > self.min_iter and delta < self.tol:
+                break
 
     def set_component(self, m, theta_E_DK, theta_G_DK, theta_shp_DK, theta_rte_DK):
         assert theta_E_DK.shape[1] == self.n_components
@@ -458,11 +463,17 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
     @property
     def y_pos_E_DIMS(self):
-        return self.min_DIMS + self.data_DIMS.toarray().clip(0, None)
+        if isinstance(self.data_DIMS, skt.dtensor):
+            return self.min_DIMS + self.data_DIMS.clip(0, None)
+        else:
+            return self.min_DIMS + self.data_DIMS.toarray().clip(0, None)
 
     @property
     def g_neg_E_DIMS(self):
-        return self.min_DIMS - self.data_DIMS.toarray().clip(None, 0)
+        if isinstance(self.data_DIMS, skt.dtensor):
+            return self.min_DIMS - self.data_DIMS.clip(None, 0)
+        else:
+            return self.min_DIMS - self.data_DIMS.toarray().clip(None, 0)
 
     @property
     def g_pos_E_DIMS(self):

@@ -34,41 +34,50 @@ def main(n_docs, n_words, alpha, beta, rank, priv):
         output_data_shape = (n_docs, n_words)
         theta_DK = np.random.gamma(alpha, beta, (n_docs, rank))
         phi_KV = np.random.gamma(alpha, beta, (rank, n_words)) 
-        poisson_priors_DV = np.dot(theta_DK, phi_KV)
+        poisson_priors_DV = parafac((theta_DK, phi_KV.T))
         # Sample true data and noisy data
         data_DV = np.random.poisson(poisson_priors_DV, output_data_shape)
         noisy_data_DV = data_DV + two_sided_geometric(priv, size=output_data_shape)
-        np.savez_compressed('test_data.npz', Y_DV=data_DV, noisy_data_DV=noisy_data_DV, phi_KV=phi_KV, theta_DK=theta_DK, mu_DV=np.dot(theta_DK, phi_KV))
+        np.savez_compressed('test_data.npz', Y_DV=data_DV, noisy_data_DV=noisy_data_DV, phi_KV=phi_KV, theta_DK=theta_DK, mu_DV=poisson_priors_DV)
 
     assert(poisson_priors_DV.shape == (n_docs, n_words))
-    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=12, true_mu=poisson_priors_DV)
+    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=200, true_mu=poisson_priors_DV)
     (new_theta, new_phi) = bpptf_model.fit_transform(noisy_data_DV, priv)
     new_mu = parafac((new_theta, new_phi))
+    
+    np.savez_compressed('test_output.npz', inferred_mu_DV=new_mu, inferred_theta_DK=new_theta, inferred_phi_KV=new_phi.T)
 
-    sns.set_context('poster')
-    sns.set_style('white')
-    kwargs = {'cmap': 'Reds'}
-    plt.subplot(1, 4, 1)
+    if n_docs > 100 or n_words > 100:
+        return
+    sns.set(context='poster', style='white', font='serif')
+    data_max = np.max(noisy_data_DV)
+    kwargs = {'cmap': 'bwr', 'vmin': -data_max, 'vmax': data_max, 'xticklabels': False, 'yticklabels': False}
+    plt.figure(figsize=(20,4))
+    
+    plt.subplot(1, 5, 1)
     sns.heatmap(poisson_priors_DV, **kwargs)
-    plt.title('True prior')
-    plt.subplot(1, 4, 2)
+    plt.title('(a) True prior')
+    plt.subplot(1, 5, 2)
     sns.heatmap(data_DV, **kwargs)
-    plt.title('Actual data')
-    plt.subplot(1, 4, 3)
+    plt.title('(b) Actual data')
+    plt.subplot(1, 5, 3)
     sns.heatmap(noisy_data_DV, **kwargs)
-    plt.title('Observed data')
-    plt.subplot(1, 4, 4)
+    plt.title('(c) Observed data')
+    plt.subplot(1, 5, 4)
     sns.heatmap(new_mu, **kwargs)
-    plt.title('Inferred prior')
-    plt.show()
-
+    plt.title('(d) Inferred prior')
+    plt.subplot(1, 5, 5)
+    sns.heatmap(np.abs(new_mu - poisson_priors_DV), **kwargs)
+    plt.title('(e) Absolute error')
+    
+    plt.savefig('test_output.pdf', bbox_inches='tight')
 
 if __name__ == '__main__':
-    n_docs = 20
-    n_words = 20
-    alpha = 0.2
-    beta = 1.
-    rank = 5
-    priv = 0.2
+    n_docs = 1000
+    n_words = 1000
+    alpha = 0.1
+    beta = 1
+    rank = 50
+    priv = 0.367879
     with launch_ipdb_on_exception():
         main(n_docs, n_words, alpha, beta, rank, priv)
