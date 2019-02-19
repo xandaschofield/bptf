@@ -1,9 +1,12 @@
-# Bayesian Poisson tensor factorization
-Source code for the paper: [Bayesian Poisson Tensor Factorization for Inferring Multilateral Relations from Sparse Dyadic Event Counts](http://arxiv.org/abs/1506.03493) by Aaron Schein, John Paisley, David M. Blei, and Hanna Wallach, in KDD 2015.
+# Locally Private Bayesian Poisson tensor factorization using variational inference.
+
+Source code from the paper, [A Variational Approach for Efficient, Locally Private Inference of Poisson Factorization Models](https://ppml-workshop.github.io/ppml/papers/63.pdf) by Alexandra Schofield, Aaron Schein, Zhiwei Steven Wu, and Hanna Wallach, in PPML 2019.
+
+Derived from the code: [Bayesian Poisson Tensor Factorization for Inferring Multilateral Relations from Sparse Dyadic Event Counts](http://arxiv.org/abs/1506.03493) by Aaron Schein, John Paisley, David M. Blei, and Hanna Wallach, in KDD 2015.
 
 The MIT License (MIT)
 
-Copyright (c) 2015 Aaron Schein
+Copyright (c) 2019 Aaron Schein and Alexandra Schofield
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,9 +28,8 @@ SOFTWARE.
 
 ## What's included:
 
-* [bptf.py](https://github.com/aschein/bptf/blob/master/code/bptf.py): The main code file.  Implements batch variational inference for BPTF.
-* [utils.py](https://github.com/aschein/bptf/blob/master/code/utils.py): Utility functions.  Includes some important multilinear algebra functions (e.g., PARAFAC, Khatri-Rao product), preprocessing functions, and serialization functions.
-* [anomaly_detection.py](https://github.com/aschein/bptf/blob/master/code/anomaly_detection.py): An example application of using BPTF for anomaly detection.
+* [bpptf.py](https://github.com/aschein/bptf/blob/master/code/bptf.py): The main code file.  Implements batch variational inference for BPTF.
+* [utils.py](https://github.com/aschein/bptf/blob/master/code/utils.py): Utility functions.  Includes some important multilinear algebra functions (e.g., PARAFAC, Khatri-Rao product), preprocessing functions, privacy noise functions, and serialization functions.
 
 ## Dependencies:
 
