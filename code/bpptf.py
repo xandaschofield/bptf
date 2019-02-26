@@ -389,7 +389,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
             if self.true_mu is not None:
                 old_mu_diff = mu_diff
                 mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
-            delta = (old_mu_diff - mu_diff)
+                delta = (old_mu_diff - mu_diff)
+            else:
+                delta = np.infty
             e = time.time() - s
             if self.verbose:
                 print('ITERATION %d:\t'\
@@ -398,6 +400,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
                       'Change: %.5e\t'\
                       % (itn+1, e, bound, delta))
             
+            if self.true_mu is not None:
                 print('Mu MAE: %f' % mu_diff)
             # if not (delta >= -self.tol):
             #     raise Exception('\n\nNegative ELBO improvement: %e\n' % delta)

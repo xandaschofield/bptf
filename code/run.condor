@@ -1,0 +1,8 @@
+universe = vanilla
+executable = run.sh
+notification = Never
+output = stdout.txt
+error = stderr.txt
+log = runlog.txt
+getenv = True
+queue 1

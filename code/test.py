@@ -2,6 +2,8 @@ import os
 
 from ipdb import launch_ipdb_on_exception
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import seaborn as sns
 
@@ -73,8 +75,8 @@ def main(n_docs, n_words, alpha, beta, rank, priv):
     plt.savefig('test_output.pdf', bbox_inches='tight')
 
 if __name__ == '__main__':
-    n_docs = 1000
-    n_words = 1000
+    n_docs = 20
+    n_words = 20
     alpha = 0.1
     beta = 1
     rank = 50
