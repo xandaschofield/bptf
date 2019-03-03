@@ -75,11 +75,11 @@ def main(n_docs, n_words, alpha, beta, rank, priv):
     plt.savefig('test_output.pdf', bbox_inches='tight')
 
 if __name__ == '__main__':
-    n_docs = 20
-    n_words = 20
+    n_docs = 500
+    n_words = 200
     alpha = 0.1
     beta = 1
-    rank = 50
-    priv = 0.367879
-    with launch_ipdb_on_exception():
-        main(n_docs, n_words, alpha, beta, rank, priv)
+    rank = 20
+    priv = 0
+    # priv = 0.367879
+    main(n_docs, n_words, alpha, beta, rank, priv)

@@ -1,3 +1,4 @@
+import argparse
 from ipdb import launch_ipdb_on_exception
 import numpy as np
 
@@ -34,14 +35,17 @@ def main(rank, priv, input_data, output_model, n_top_words=25, max_iter=200):
     for topic in xrange(rank):
         top_word_vals = zip(-new_phi[topic, top_words[topic]], vocab[top_words[topic]])
         print topic, ' '.join(['{}'.format(wd) for (_, wd) in sorted(top_word_vals)])
-        
+
 
 
 if __name__ == '__main__':
-    data_file = 'enron_8_10_sample.npz'
-    out_file = 'enron_test_topic_model.npz'
-    rank = 50
-    priv = 0.135335
-    max_iter=200
-    with launch_ipdb_on_exception():
-        main(rank, priv, data_file, out_file, max_iter=max_iter)
+    parser = argparse.ArgumentParser(description='Program for testing Enron data, etc.')
+
+    parser.add_argument('--input', default='enron_8_10_sample.npz', help='NPZ input data')
+    parser.add_argument('--output', default='enron_test_topic_model.npz', help='NPZ output file')
+    parser.add_argument('--rank', type=int, default=20, help='Number of components/topics')
+    parser.add_argument('--priv', type=float, default=0.0, help='Float privacy level in [0, 1]')
+    parser.add_argument('--niters', type=int, default=200, help='Maximum number of iterations.')
+
+    args = parser.parse_args()
+    main(args.rank, args.priv, args.input, args.output, max_iter=args.niters)

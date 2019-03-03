@@ -1,8 +1,10 @@
 universe = vanilla
 executable = run.sh
 notification = Never
-output = stdout.txt
-error = stderr.txt
-log = runlog.txt
+output = logs/stdout_$(Cluster)_$(Process).txt
+error = logs/stderr_$(Cluster)_$(Process).txt
+log = logs/runlog_$(Cluster)_$(Process).txt
+arguments = $(Process)
 getenv = True
+
 queue 1
