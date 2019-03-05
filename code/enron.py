@@ -17,7 +17,7 @@ def two_sided_geometric(p, size=()):
     return G_2[0] - G_2[1]
 
 
-def main(rank, priv, input_data, output_model, n_top_words=25, max_iter=200, alpha=0.001):
+def main(rank, priv, input_data, output_model, n_top_words=25, max_iter=200, alpha=0.01):
     dat_file = np.load(input_data)
     data_DV = dat_file['Y_DV']
     vocab = dat_file['types_V']

@@ -263,8 +263,6 @@ class BPPTF(BaseEstimator, TransformerMixin):
         )
         print y_spt_DIMS.vals.min()
 
-        if np.any(self._reconstruct_nz(y_spt_DIMS.subs) == 0):
-            import ipdb; ipdb.set_trace()
         tmp_DIMS = y_spt_DIMS.vals / self._reconstruct_nz(y_spt_DIMS.subs)
         uttkrp_nonzero_DK = sp_uttkrp(tmp_DIMS, y_spt_DIMS.subs, m, self.theta_G_DK_M)
 
@@ -379,9 +377,6 @@ class BPPTF(BaseEstimator, TransformerMixin):
                   'Objective: %.2f\t'\
                   'Change: %.5e\t'\
                 % (0, 0.0, mu_diff, np.nan))
-
-        # TODO unclamp
-        self.beta_M = np.array([10800., 1.001])
 
         for itn in range(self.max_iter):
             s = time.time()
