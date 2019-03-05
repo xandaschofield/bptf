@@ -30,7 +30,8 @@ def _gamma_bound_term(pa, pb, qa, qb):
 
 class BPPTF(BaseEstimator, TransformerMixin):
     def __init__(self, n_modes=4, n_components=100,  max_iter=200, tol=0.0001,
-                 smoothness=100, verbose=True, alpha=0.1, debug=False, true_mu=None):
+                 smoothness=100, verbose=True, alpha=0.1, debug=False, true_mu=None,
+                 beta_burnin=0):
         """Bayesian Private Poisson Tensor Factorization.
 
         Arguments
@@ -65,6 +66,9 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         true_mu : np.array
             If data was generated synthetically, provides the true value of the Poisson priors.
+        
+        beta_burnin : int
+            Number of iterations before beta starts to be inferred.
         """
 
         self.n_modes = n_modes
@@ -78,6 +82,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         self.alpha = alpha                                      # shape hyperparameter
         self.beta_M = np.ones(self.n_modes, dtype=float)        # rate hyperparameter (inferred)
+        self.beta_burnin = beta_burnin
 
         # Initialize the list of variational parameter matrices and
         # expectations for latent factors. Because these matrices have
@@ -110,7 +115,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
         I = subs_I_M[0].size
         K = self.n_components
         nz_recon_IK = np.ones((I, K))
-        for m in range(self.n_modes):
+        for m in xrange(self.n_modes):
             nz_recon_IK *= self.theta_G_DK_M[m][subs_I_M[m], :]
         self.nz_recon_I = nz_recon_IK.sum(axis=1)
         return self.nz_recon_I
@@ -249,12 +254,21 @@ class BPPTF(BaseEstimator, TransformerMixin):
         assert np.isfinite(self.lam_rte_DIMS).all()
 
     def _update_theta_gamma(self, m):
-        tmp_DIMS = skt.dtensor(self.y_E_DIMS.astype(float))
-        subs_I_M = self.y_E_DIMS.nonzero()
-        tmp_DIMS[subs_I_M] /= self._reconstruct_nz(subs_I_M)
-        uttkrp_DK = tmp_DIMS.uttkrp(self.theta_G_DK_M, m)
+        subs_I_M = np.where(self.y_E_DIMS > 1e-4)
+        y_spt_DIMS = skt.sptensor(
+            subs_I_M,
+            self.y_E_DIMS[subs_I_M],
+            shape=self.y_E_DIMS.shape,
+            dtype=float
+        )
+        print y_spt_DIMS.vals.min()
 
-        self.theta_shp_DK_M[m][:, :] = self.alpha + self.theta_G_DK_M[m] * uttkrp_DK
+        if np.any(self._reconstruct_nz(y_spt_DIMS.subs) == 0):
+            import ipdb; ipdb.set_trace()
+        tmp_DIMS = y_spt_DIMS.vals / self._reconstruct_nz(y_spt_DIMS.subs)
+        uttkrp_nonzero_DK = sp_uttkrp(tmp_DIMS, y_spt_DIMS.subs, m, self.theta_G_DK_M)
+
+        self.theta_shp_DK_M[m][:, :] = self.alpha + self.theta_G_DK_M[m] * uttkrp_nonzero_DK
 
     def _update_theta_delta(self, m, mask=None):
         if mask is None:
@@ -338,7 +352,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
             arr.sum(axis=tuple(range(1, len(arr.shape)))).mean()
         )
 
-    def _update(self, data, priv=None, mask=None, modes=None, update_beta=10):
+    def _update(self, data, priv=None, mask=None, modes=None):
         if modes is not None:
             modes = list(set(modes))
         else:
@@ -354,54 +368,50 @@ class BPPTF(BaseEstimator, TransformerMixin):
             if isinstance(data, skt.sptensor):
                 self.y_E_DIMS = self.y_E_DIMS.toarray()
 
-        if self.debug:
-            curr_elbo = self._test_elbo(data)
-        else:
-            # curr_elbo = self._elbo(data, mask=mask)
-            curr_elbo = -1
-        if self.true_mu is not None:
+        if not self.debug and self.true_mu is not None:
             mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
+        else:
+            mu_diff = -1
 
         if self.verbose:
             print('ITERATION %d:\t'\
                   'Time: %f\t'\
                   'Objective: %.2f\t'\
                   'Change: %.5e\t'\
-                % (0, 0.0, curr_elbo, np.nan))
+                % (0, 0.0, mu_diff, np.nan))
+
+        # TODO unclamp
+        self.beta_M = np.array([10800., 1.001])
 
         for itn in range(self.max_iter):
             s = time.time()
-            self._update_mu(mask=mask)
-            if priv is None or priv > 0:
+            if priv is not None and priv > 0:
                 self._update_mins(mask=mask)
                 self._update_y(mask=mask)
                 self._update_lam_shp(mask=mask)
-                if self.verbose:
-                    print "Privacy values:"
-                    self._print_arr_stats(self.min_DIMS, "m")
-                    self._print_arr_stats(self.y_E_DIMS, "y")
-                    self._print_arr_stats(self.lam_shp_2DIMS[0], "lam+")
-                    self._print_arr_stats(self.lam_shp_2DIMS[1], "lam-")
+                # if self.verbose:
+                #     print "Privacy values:"
+                #     self._print_arr_stats(self.min_DIMS, "m")
+                #     self._print_arr_stats(self.y_E_DIMS, "y")
+                #     self._print_arr_stats(self.lam_shp_2DIMS[0], "lam+")
+                #     self._print_arr_stats(self.lam_shp_2DIMS[1], "lam-")
 
             if self.verbose:
                 print "Per-mode parameters:"
+                
             for m in modes:
                 self._update_theta_gamma(m)
                 self._update_theta_delta(m, mask)
+                self._print_arr_stats(self.theta_rte_DK_M[m], 'theta_rte')
                 self._update_cache(m)
-                if (m == 0 or not self.debug) and itn > 0 and update_beta > 0 and itn % update_beta == 0:
+                if (m == 0 or not self.debug) and itn >= self.beta_burnin:
                     self._update_beta(m)  # must come after cache update!
                 self._check_component(m)
-                if self.verbose:
-                    self._print_arr_stats(self.theta_E_DK_M[m], "mode {} theta".format(m))
-                    print("mode {} beta: {}".format(m, self.beta_M[m]))
+                print("mode {} beta: {}".format(m, self.beta_M[m]))
+            
+            self._update_mu(mask=mask)
 
-            if self.debug:
-                bound = self._test_elbo(data)
-            else:
-                # bound = self._elbo(data, mask=mask)
-                bound = -1
-            if self.true_mu is not None:
+            if not self.debug and self.true_mu is not None:
                 old_mu_diff = mu_diff
                 mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
                 delta = (old_mu_diff - mu_diff)
@@ -413,17 +423,10 @@ class BPPTF(BaseEstimator, TransformerMixin):
                       'Time: %f\t'\
                       'Objective: %.2f\t'\
                       'Change: %.5e\t'\
-                      % (itn+1, e, bound, delta))
+                      % (itn+1, e, mu_diff, delta))
 
-            if self.true_mu is not None:
-                print('Mu MAE: %f' % mu_diff)
-
-            # Code to change once ELBO is implemented
-            # if not (delta >= -self.tol):
-            #     raise Exception('\n\nNegative ELBO improvement: %e\n' % delta)
-            curr_elbo = bound
-            #if itn > self.min_iter and delta < self.tol:
-            #    break
+            if abs(delta) < self.tol:
+                break
 
     def set_component(self, m, theta_E_DK, theta_G_DK, theta_shp_DK, theta_rte_DK):
         assert theta_E_DK.shape[1] == self.n_components

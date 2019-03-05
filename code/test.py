@@ -7,6 +7,7 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import seaborn as sns
 
+from bptf import BPTF
 from bpptf import BPPTF
 from utils import parafac
 
@@ -22,7 +23,7 @@ def two_sided_geometric(p, size=()):
     return G_2[0] - G_2[1]
 
 
-def main(n_docs, n_words, alpha, beta, rank, priv):
+def main(n_docs, n_words, alpha, beta, rank, priv, n_iters=200):
     try:
         dat_file = np.load('test_data.npz')
         data_DV = dat_file['Y_DV']
@@ -34,8 +35,8 @@ def main(n_docs, n_words, alpha, beta, rank, priv):
         poisson_priors_DV = parafac((theta_DK, phi_KV.T))
     except:
         output_data_shape = (n_docs, n_words)
-        theta_DK = np.random.gamma(alpha, beta, (n_docs, rank))
-        phi_KV = np.random.gamma(alpha, beta, (rank, n_words)) 
+        theta_DK = np.random.gamma(alpha, 1./beta, (n_docs, rank))
+        phi_KV = np.random.gamma(alpha, 1./beta, (rank, n_words)) 
         poisson_priors_DV = parafac((theta_DK, phi_KV.T))
         # Sample true data and noisy data
         data_DV = np.random.poisson(poisson_priors_DV, output_data_shape)
@@ -43,8 +44,10 @@ def main(n_docs, n_words, alpha, beta, rank, priv):
         np.savez_compressed('test_data.npz', Y_DV=data_DV, noisy_data_DV=noisy_data_DV, phi_KV=phi_KV, theta_DK=theta_DK, mu_DV=poisson_priors_DV)
 
     assert(poisson_priors_DV.shape == (n_docs, n_words))
-    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=200, true_mu=poisson_priors_DV)
+    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, true_mu=poisson_priors_DV, debug=True)
+    # bptf_model = BPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, debug=True)
     (new_theta, new_phi) = bpptf_model.fit_transform(noisy_data_DV, priv)
+    # (new_theta, new_phi) = bptf_model.fit_transform((0, 1), noisy_data_DV)
     new_mu = parafac((new_theta, new_phi))
     
     np.savez_compressed('test_output.npz', inferred_mu_DV=new_mu, inferred_theta_DK=new_theta, inferred_phi_KV=new_phi.T)
@@ -75,11 +78,11 @@ def main(n_docs, n_words, alpha, beta, rank, priv):
     plt.savefig('test_output.pdf', bbox_inches='tight')
 
 if __name__ == '__main__':
-    n_docs = 500
-    n_words = 200
+    n_docs = 10
+    n_words = 10
     alpha = 0.1
     beta = 1
-    rank = 20
+    rank = 2
     priv = 0
     # priv = 0.367879
-    main(n_docs, n_words, alpha, beta, rank, priv)
+    main(n_docs, n_words, alpha, beta, rank, priv, n_iters=20)
