@@ -14,7 +14,7 @@ import time
 import numpy as np
 import numpy.random as rn
 #pylint: disable=E0611
-from scipy.special import gammaln, psi
+from scipy.special import gammaln, iv, psi
 import sktensor as skt
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -66,7 +66,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         true_mu : np.array
             If data was generated synthetically, provides the true value of the Poisson priors.
-        
+
         beta_burnin : int
             Number of iterations before beta starts to be inferred.
         """
@@ -230,10 +230,10 @@ class BPPTF(BaseEstimator, TransformerMixin):
             self.beta_M[m] = 1. / self.theta_E_DK_M[m].mean()
 
     def _init_privacy_variables(self, mode_dims, priv):
-        self.y_E_DIMS = np.empty(mode_dims + (self.n_components,), dtype=int)
-        self.min_DIMS = np.empty(mode_dims, dtype=int)
+        self.y_E_DIMS = np.empty(mode_dims, dtype=int)
+        self.min_DIMS = np.random.poisson(lam=priv, size=mode_dims)
         if not self.debug:
-            self.lam_shp_2DIMS = 1 + rn.gamma(1, 1, size=(2,) + mode_dims)
+            self.lam_shp_2DIMS = 1 + rn.gamma(1, priv/(1 - priv), size=(2,) + mode_dims)
         else:
             self.lam_shp_2DIMS = np.ones((2,) + mode_dims)
 
@@ -261,8 +261,6 @@ class BPPTF(BaseEstimator, TransformerMixin):
             shape=self.y_E_DIMS.shape,
             dtype=float
         )
-        print y_spt_DIMS.vals.min()
-
         tmp_DIMS = y_spt_DIMS.vals / self._reconstruct_nz(y_spt_DIMS.subs)
         uttkrp_nonzero_DK = sp_uttkrp(tmp_DIMS, y_spt_DIMS.subs, m, self.theta_G_DK_M)
 
@@ -278,8 +276,8 @@ class BPPTF(BaseEstimator, TransformerMixin):
         self.theta_rte_DK_M[m][:, :] = self.alpha * self.beta_M[m] + uttkrp_DK
 
     def _update_y(self, mask=None):
-        lam_pos_E_DIMS = self.lam_shp_2DIMS[0] / self.lam_rte_DIMS[0]
-        self.y_E_DIMS = self.y_pos_E_DIMS * self.mu_G_DIMS / (self.mu_G_DIMS + lam_pos_E_DIMS)
+        lam_pos_G_DIMS = np.exp(psi(self.lam_shp_2DIMS[0]) - np.log(self.lam_rte_DIMS))
+        self.y_E_DIMS = self.y_pos_E_DIMS * self.mu_G_DIMS / (self.mu_G_DIMS + lam_pos_G_DIMS)
 
     def _update_lam_shp(self, mask=None):
         self.lam_shp_2DIMS[0] = self.g_pos_E_DIMS + 1
@@ -302,7 +300,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
             parafac(np.square(self.theta_E_DK_M) + self.theta_V_DK_M)
             - parafac(np.square(self.theta_E_DK_M)))
                 # Compute geometric expectation of mu (based on theta)
-        lam_G_2DIMS = self.lam_shp_2DIMS / self.lam_rte_DIMS
+        lam_G_2DIMS = np.exp(psi(self.lam_shp_2DIMS) - np.log(self.lam_rte_DIMS))
         lam_pos_V_DIMS = self.lam_shp_2DIMS[0] / np.square(self.lam_rte_DIMS)
 
         # Approximating a geometric expectation using the delta method:
@@ -328,6 +326,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
             np.sqrt(np.square(a_DIMS) + np.square(nu_DIMS)) - nu_DIMS,
             2
         )
+
         if mask is not None:
             self.min_DIMS *= mask
 
@@ -384,27 +383,24 @@ class BPPTF(BaseEstimator, TransformerMixin):
                 self._update_mins(mask=mask)
                 self._update_y(mask=mask)
                 self._update_lam_shp(mask=mask)
-                # if self.verbose:
-                #     print "Privacy values:"
-                #     self._print_arr_stats(self.min_DIMS, "m")
-                #     self._print_arr_stats(self.y_E_DIMS, "y")
-                #     self._print_arr_stats(self.lam_shp_2DIMS[0], "lam+")
-                #     self._print_arr_stats(self.lam_shp_2DIMS[1], "lam-")
+                if self.verbose:
+                    print "Privacy values:"
+                    self._print_arr_stats(self.min_DIMS, "m")
+                    self._print_arr_stats(self.y_E_DIMS, "y")
+                    self._print_arr_stats(self.lam_shp_2DIMS[0], "lam+")
+                    self._print_arr_stats(self.lam_shp_2DIMS[1], "lam-")
 
-            if self.verbose:
-                print "Per-mode parameters:"
-                
+            self._update_mu(mask=mask)
             for m in modes:
                 self._update_theta_gamma(m)
                 self._update_theta_delta(m, mask)
-                self._print_arr_stats(self.theta_rte_DK_M[m], 'theta_rte')
                 self._update_cache(m)
+                if self.verbose:
+                    self._print_arr_stats(self.theta_E_DK_M[m], 'theta_%d' % m)
+
                 if (m == 0 or not self.debug) and itn >= self.beta_burnin:
                     self._update_beta(m)  # must come after cache update!
                 self._check_component(m)
-                print("mode {} beta: {}".format(m, self.beta_M[m]))
-            
-            self._update_mu(mask=mask)
 
             if not self.debug and self.true_mu is not None:
                 old_mu_diff = mu_diff
