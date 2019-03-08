@@ -78,7 +78,7 @@
 % Set the typeface to Times Roman
 \usepackage{times}
 
-\title{A Variational Approach for Efficient, Locally Private Inference of Poisson Factorization Models}
+\title{A Variational Approach for Locally Private Inference of Poisson Factorization Models}
 
 \author{} % LEAVE BLANK FOR ORIGINAL SUBMISSION.
           % UAI  reviewing is double-blind.
@@ -92,13 +92,17 @@
 \maketitle
 
 \begin{abstract}
-    Recent work that introduces local privacy to Bayesian Poisson factorization
-    model inference, but its proposed MCMC algorithm for inference suffers from
-    significant performance issues. We derive a coordinate ascent variational
-    inference algorithm to infer factorization models efficiently from private
-    data. Our model relies on several new properties we prove about Bessel
-    distributions. Our method produces a factor of 20 speedup over a comparable
-    MCMC implementation in a synthetic experiment for model inference.
+    Recent work \citep{schein2018locally} introduces a locally private method to
+    infer Poisson factorization models by first applying differentially private
+    noise, then using Bayesian inference to estimate the true data priors given
+    knowledge of the random noise distribution. While the existing work uses an
+    MCMC algorithm, this sampling-based method can be slow for high-dimensional
+    datasets such as those for language models or large-scale social networks.
+    We improve on this method with a coordinate ascent variational inference
+    algorithm to infer factorization models efficiently from private data. Our
+    model relies on several new properties we prove about Bessel distributions.
+    Our method produces a factor of 20 speedup over a comparable MCMC
+    implementation in a synthetic experiment for model inference.
   \end{abstract}
 
   \section{Introduction}
@@ -183,39 +187,39 @@
   than the MCMC approach.
   
   \section{Background}
-  % \textbf{Bayesian inference} consists of approximating the posterior
-  % distribution $P(Z\,|\,Y)$ of latent variables $Z$ given data $Y$. This is
-  % most often performed using Markov chain Monte Carlo (MCMC) or mean-field
-  % coordinate ascent variational inference (CAVI). An MCMC inference algorithm
-  % iteratively re-samples each latent variable from its \emph{complete
-  % conditional} $z_n \sim P(z_n\,|\,Z_{\backslash n}, Y)$ where $Z_{\backslash
-  % n}$ denotes the set of all latent variables except $z_n$. CAVI inference
-  % algorithms specify a factorized variational distribution over latent
-  % variables $Q(Z) = \prod_n Q(z_n)$ and then optimize its parameters to
-  % minimize the KL-divergence from it and to the exact posterior. A general
-  % result is that the optimal factorized $Q(Z)$ consists of $Q(z_n)$ factors
-  % that are proportional to the geometric expectation of the corresponding
-  % complete conditional---i.e., $Q^*(z_n) \propto
-  % \Gqnot{z_n}{P(z_n\,|\,Z_{\backslash n}, Y)}$ where the geometric expectation
-  % is $\mathbbm{G}[\cdot]=\exp\left(\mathbbm{E}[\ln \cdot]\right)$. In
-  % practice, CAVI requires orders of magnitude fewer iterations than MCMC to
-  % converge and is easier to adapt to large-scale streaming data settings.
+  \textbf{Bayesian inference} consists of approximating the posterior
+  distribution $P(Z\,|\,Y)$ of latent variables $Z$ given data $Y$. This is
+  most often performed using Markov chain Monte Carlo (MCMC) or mean-field
+  coordinate ascent variational inference (CAVI). An MCMC inference algorithm
+  iteratively re-samples each latent variable from its \emph{complete
+  conditional} $z_n \sim P(z_n\,|\,Z_{\backslash n}, Y)$ where $Z_{\backslash
+  n}$ denotes the set of all latent variables except $z_n$. CAVI inference
+  algorithms specify a factorized variational distribution over latent
+  variables $Q(Z) = \prod_n Q(z_n)$ and then optimize its parameters to
+  minimize the KL-divergence from it and to the exact posterior. A general
+  result is that the optimal factorized $Q(Z)$ consists of $Q(z_n)$ factors
+  that are proportional to the geometric expectation of the corresponding
+  complete conditional---i.e., $Q^*(z_n) \propto
+  \Gqnot{z_n}{P(z_n\,|\,Z_{\backslash n}, Y)}$ where the geometric expectation
+  is $\mathbbm{G}[\cdot]=\exp\left(\mathbbm{E}[\ln \cdot]\right)$. In
+  practice, CAVI requires orders of magnitude fewer iterations than MCMC to
+  converge and is easier to adapt to large-scale streaming data settings.
   
   \textbf{Poisson factorization}
   \citep{titsias2008infinite,cemgil2009bayesian,zhou2012augment,gopalan2013efficient,paisley2014bayesian}
   is a broad class of models for learning latent structure from discrete data,
   containing many of the most widely used models in the social sciences.
-  % including topic models for text corpora
-  % \citep{blei2003latent,buntine2004applying,canny2004gap}, population models
-  % for genetic data \citep{pritchard2000inference}, stochastic block models for
-  % social networks
-  % \citep{ball2011efficient,gopalan2013efficient,zhou2015infinite}, and tensor
-  % factorization for dyadic data
-  % \citep{welling2001positive,chi2012tensors,schmidt2013nonparametric,schein2015bayesian,schein2016bayesian}.
-  % It further includes deep hierarchical models
-  % \citep{ranganath2015deep,zhou2015poisson}, dynamic models
-  % \citep{charlin2015dynamic,acharya2015nonparametric,schein2016pgds}, and many
-  % others.
+  including topic models for text corpora
+  \citep{blei2003latent,buntine2004applying,canny2004gap}, population models
+  for genetic data \citep{pritchard2000inference}, stochastic block models for
+  social networks
+  \citep{ball2011efficient,gopalan2013efficient,zhou2015infinite}, and tensor
+  factorization for dyadic data
+  \citep{welling2001positive,chi2012tensors,schmidt2013nonparametric,schein2015bayesian,schein2016bayesian}.
+  It further includes deep hierarchical models
+  \citep{ranganath2015deep,zhou2015poisson}, dynamic models
+  \citep{charlin2015dynamic,acharya2015nonparametric,schein2016pgds}, and many
+  others.
   Poisson factorization assumes that each observed count $\ys$ is a Poisson
   random variable---$\ys \sim \Pois{\mus}$---with unknown rate parameter $\mus$
   that is a deterministic function of shared model parameters. We use the
@@ -270,22 +274,36 @@
   \end{equation}
   
   \textbf{Locally private MCMC for Poisson factorization}. In locally private
-  Poisson factorization, we do not directly observe the count $\ys$. Instead, we
+  Poisson factorization, the true data count $\ys$ is unobserved. Instead, we
   observe a noised version of it $\ytPM = \taus + \ys$ where $\taus \sim
-  \Geo{\alpha_{\subs}}$ is a two-sided geometric random variable generated based
-  on privacy parameter $\alpha_{\subs} \in [0,1]$. \cite{schein2018locally} show
-  that such perturbation mechanism satisfies $(N, N
+  \Geo{\alpha_{\subs}}$ is a randomizing distribution giving a guarantee of
+  differential privacy. Following \cite{schein2018locally}, we use a two-sided
+  geometric random variable generated based on privacy parameter $\alpha_{\subs} \in [0,1]$.
+  The authors demonstrate that such perturbation mechanism satisfies $(N, N
   \ln(1/\alpha_{\subs}))$-limited-precision local privacy.\footnote{A local
   randomizer $R$ satisfies $(N, \epsilon)$-limited-precision local privacy if
   for any two observations $y,y'\in \mathbb{N}^d$ such that $\|y-y'\|_1\leq N$,
   $R$ satisfies $\Pr[R(y) = r] \leq \exp(\epsilon)\Pr[R(y') = r]$ for any $r$ in
-  the output range.} MCMC in this case proceeds by treating the true data $\ys$
+  the output range.} Their protocol in this case proceeds by treating the true data $\ys$
   itself as a latent variable and re-sampling it from its complete conditional.
-  To do this, one can augment standard Poisson factorization with a set of
-  auxiliary variables for each data point  $\mathcal{A}_{\subs} = \left\{\lamP,
-  \lamM, \gP, \gM, \ytP, \ms\right\}$, related to a reinterpretation of the
-  generative process for two-sided geometric noise as given in Appendix
-  \ref{sec:generative}. The key feature of this auxiliary variable scheme is the
+
+  To find a variational inference algorithm, we leverage existing equivalent
+  characterizations of the generative process for Poisson factorization models
+  under differential privacy as provided by \citep{schein2018locally}.
+  We consider in this case the variable $\ys$ to be
+  a true observed data point, while $\ytPM$ is the observed version with random
+  noise. We treat two-sided geometric noise as the difference of two
+  Poisson variables $\gP$ and $\gM$, generated with Gamma-distributed priors
+  $\lamP$ and $\lamM$, respectively/ We define $\ytP = \ys + \gP$ and $\ytPM =
+  \ys + \gP - \gM$. We can determine whether $\ytPM$ is positive or negative by
+  comparing the values of $\ytP$ and $\gM$; we refer to the minimum of these two
+  as $\ms$.
+  \begin{equation}
+  P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
+    \ytP, \ytPM, \ms\right).
+  \end{equation}
+
+  The key feature of the variable scheme to describe these processes is the
   two-step sampling procedure of a value of the sensitive count $\ys$ as a
   latent variable:
   \begin{align}
@@ -299,7 +317,48 @@
   of these sub-counts $\gP$ represents the positive noise added to the sensitive
   data $\ys=\sum_{k=1}^K \ysk$, while the latter sub-counts constitute the
   vector of sub-counts corresponding to each latent component in non-private
-  Poisson factorization (see Equation~\ref{eqn:multinom}).\looseness=-1
+  Poisson factorization.
+
+  One way to characterize this process is to first generate the sums of Poisson
+  distributions of the underlying data, then thin them
+  using multinomial and binomial draws. In the following equation, the delta
+  functions are implicitly present in the multinomial and binomial PMFs. Note
+  that we write the probability parameters in the multinomial and binomial PMFs
+  as unnormalized vectors. Note that $\mu_{\subs} = \sum_k \prod_d
+  \theta_{i_d,k}^{(i)}$, where $i_d$ is the index into the $d$th dimension of
+  index vector $\subs$.
+  %
+  \begin{align}
+  &P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
+    \ytP, \ytPM, \ms\right) \notag \\
+  &\quad= \Pois{\gM; \lamM} \,
+    \Pois { \ytP; \lamP \tp \mu_{\subs} }
+    \notag \\
+  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP,(\mu_{\subs}, \lamP)\right) \, \notag \\
+  &\quad\quad \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(i)} \Big)_{k=1}^K\right) \notag \\
+  &\quad\quad \mathbbm{1}\left(\ytPM =
+    \ytP - \gM\right) \mathbbm{1} \left( \ms =
+    \min\{\ytP, \gM\} \right) .
+  \end{align}
+
+  Equivalently, we may first generate the difference $\ytPM$ and minimum $\ms$ as
+  Skellam and Bessel random variables. Conditioned on these variables, we can
+  then compute $\ytP$ and $\gM$ via their deterministic relationship and,
+  finally, thin $\ytP$ using binomial and multinomial draws:
+    \begin{align}
+  &P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
+    \ytP, \ytPM, \ms\right)\notag\\
+    \label{eqn:finalfact}
+  &\quad= \text{Skel}\left(\ytPM;\, \lamP \tp \mu_{\subs},\, \lamM\right)\,\notag \\
+  &\quad\quad \text{Bes}\left(\ms;\, |\ytPM|,\,2\sqrt{\lamM(\lamP+\mu_{\subs})}\right)\notag\\
+  &\quad\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)}\notag \\
+  &\quad\quad \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
+  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP, (\mu_{\subs}, \lamP)\right) \,\notag\\
+  &\quad\quad \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(i)} \Big)_{k=1}^K\right).
+  \end{align}
+  It is this last factorization that enables us to derive the variational
+  distribution.
+
   
   \section{Locally private variational inference for Poisson factorization}
   In this section we describe the challenges to deriving CAVI for locally
@@ -308,10 +367,22 @@
   in this case, includes the set of auxiliary variables $\mathcal{A}_{\subs}$
   for each data point mentioned in the last section. The main technical
   challenge lies in finding a variational families for $\ms$ and $\yvtP$ that
-  yield a good approximation and closed-form messages to the other factors.
-  Towards this goal, we prove the following two related
-  propositions:~\looseness=-1
+  yield a good approximation and closed-form messages to the other factors. We
+  discuss our solutions to several challenges presented in inference of a CAVI
+  algorithm and our solutions.~\looseness=-1
    
+  \subsection{Variational distribution of a Bessel variable}
+  
+  One challenge of the Skellam and Bessel characterization of our generative process
+  is determining the appropriate variational distribution of the variable $\ms$. The
+  Bessel distribution itself is not an exponential family distribution, which would
+  make it a poor candidate for developing a variational distribution. However, we are
+  able to demonstrate that when one of the two Bessel parameters, $\nu$, is fixed,
+  a Bessel distribution is exponential family. As $nu$ is observed as a function of the
+  privacy level of our model, this is sufficient for inference.
+
+  Towards this, we prove two propositions:
+  
   \begin{proposition} (Proven in Appendix \ref{sec:expfambessel}.) The Bessel
   distribution $m \sim \Bess{\nu, a}$ for fixed $\nu$ is an exponential family
   with sufficient statistic $T_{\nu}(m) \teq 2m \tp \nu$, natural parameter
@@ -330,6 +401,7 @@
   \end{align}
   \end{proposition}
   
+
   Unfortunately, selecting the Bessel distribution as the family for $Q(\ms)$
   prevents a closed-form solution to $Q^*(\yvtP)$: specifically, it results in
   the expression of the integer number of samples in a binomial distribution
@@ -349,14 +421,15 @@
   &\left(\Gq{\lamP}, \Gq{\mu_{\subs 1}}, \dots, \Gq{\mu_{\subs K}} \right) \biggr).
   \end{split}
   \end{align}
+
   Furthermore, we can prove that this degenerate choice variational family is in
   fact nearly optimal in practice. Since the other factors depend on $Q(\ms)$
   only through the message $\Eq{\ms}$, we need only show that the difference
   between the optimal message and ours is small. Under the optimal $Q^*(\ms)$,
   this message equals the \emph{expected value} under the Bessel distribution in
   Equation~\ref{eqn:opt} while in our solution, it equals the \emph{mode} of
-  that same distribution. To bound the error between these two, we prove the
-  following proposition:
+  that same distribution. To bound the error between these two, we prove a
+  third proposition:
   
   \begin{proposition} (Proven in Appendix \ref{sec:besselmode}.) The absolute
   difference between the mean and mode of the Bessel distribution is bounded by
@@ -375,7 +448,79 @@
   of a closed form. However, we can derive a first-order Taylor approximation
   via the delta method \citep{ver2012invented}.\looseness=-1
   
-  % \section{Related Work} % DP, local privacy % Private topic models % Previous
+  \subsection{CAVI updates for the variational distribution}
+  \label{sec:cavi}
+  Recall that the observed data consists of the difference variables $\ytPM$.
+  \begin{align}
+    \label{eqn:var1}
+  Q& \left( \ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K\right) \propto \notag\\
+  & \Gq{P(\ytPM, \ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,-)}.
+  \end{align}
+  Because the likelihood (i.e., the Skellam term) in
+  equation~\ref{eqn:finalfact} does not depend on any of these latent variables,
+  it disappears entirely. Pushing in expectations and applying the results of Proposition
+  1, we can then rewrite the right-hand side of
+  equation~\ref{eqn:var1} as:
+    
+    \begin{align}
+  &\Gq{P(\ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,\ytPM-)}\notag\\
+  &= \text{Bes}\left(\ms;\, | \ytPM|,\,2\sqrt{\Gq{\lamM}\Gq{\lamP +\mu_{\subs}}}\right)\notag\\
+  &\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} 
+   \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)} \notag \\
+  &\quad \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
+  &\quad \text{Binom}\left((\ys);\,
+      \Eq{\ytP}, \frac{\Gq{\mu_{\subs}}}{\Gq{\lamP} + \Gq{\mu_{\subs}}},
+      \right)\notag\\
+  &\quad \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \Eq{\ys}, \Big(\Gq{ \prod_d \theta_{i_d,k}^{(i)} }\Big)_{k=1}^K\right).
+  \end{align}
+  
+  Two expectations do not have an analytic form:
+  \begin{align}
+  &\Gq{\lamP + \mu_{\subs}} = \notag \\
+    &\quad\quad \exp\left(\Eq{\ln \left(\lamP
+    + \sum_{k=1}^K \prod_d \theta_{i_d,k}^{(i)} \right)}\right) \\
+  \intertext{and}
+  &\Gq{\mu_{\subs}} = \exp\left(\Eq{\ln \left(\sum_{k=1}^K \prod_d \theta_{i_d,k}^{(i)} \right)}\right);
+  \end{align}
+  however, both can be very closely approximated using the delta
+  method~\citep{ver2012invented}, which has been previously used in variational
+  inference schemes to approximate intractable
+  expectations~\citep{braun2010variational,wang2013variational}. In particular,
+  for some variable $Y = f(X)$, expectation $\mathbbm{E}[Y]$ is approximately:
+  \begin{equation}
+  \mathbbm{E}[Y] = \mathbbm{E}[f(X)] \approx f\left(\mathbbm{E}[X]\right) + \frac{1}{2} \, f''\left(\mathbbm{E}[X]\right) \mathbbm{V}[X].
+  \end{equation}
+  In our case, we can consider the two-dimensional Poisson matrix factorization
+  case where $\subs$ are represented by row $d$ and column $v$. We therefore
+  have
+  \begin{align}
+  \Eq{\ln \mu_{dv}} &= \Eq{\ln\left(\sum_{k=1}^K \theta_{dk}\phi_{kv}\right)} \notag \\
+  &\approx \ln\left(\Eq{\sum_{k=1}^K \theta_{dk}\phi_{kv}}\right) \notag \\
+  &\quad - \frac{\mathbbm{V}_{Q}\left[\sum_{k=1}^K \theta_{dk} \phi_{kv}\right]}{2 \, \left(\Eq{\sum_{k=1}^K \theta_{dk} \phi_{kv}}\right)^2} \notag \\
+  &=\ln\left(\sum_{k=1}^K \Eq{\theta_{dk}}\Eq{\phi_{kv}}\right) \notag \\
+  &\quad - \frac{\sum_{k=1}^K \Vq{\theta_{dk} \phi_{kv}}}{2 \, \left(\sum_{k=1}^K \Eq{\theta_{dk}} \Eq{\phi_{kv}}\right)^2}.
+  \end{align}
+  Finally, because $\theta_{dk}$ and $\phi_{kv}$ are independent, we have
+  \begin{align}
+  \Vq{\theta_{dk} \phi_{kv}} =& \Vq{\theta_{dk}} \Vq{\phi_{kv}} \notag \\
+  &+ \Vq{\theta_{dk}} \left(\Eq{\phi_{kv}}\right)^2 \notag \\
+  &+ \Vq{\phi_{kv}} \left(\Eq{\theta_{dk}}\right)^2.
+  \end{align}
+
+  \begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/test_output.pdf}
+    \caption{Demonstration of the results of the VI inference process for a
+     50-word, 50-document synthetic dataset with 5 latent topics. The true
+     data parameters (a) are recovered better by our inference procedure (e)
+     than by naive variational inference (d), even though the noisy data (c)
+     is much denser than the true data (b). Though inconsistent, in some random
+     trials where we incorrectly informed the model that $\epsilon / N = 0.9$,
+     our estimates of the prior, while lower-magnitude, would be closer to the
+     true model.}
+    \label{fig:test_output}
+\end{figure*}
+  %\section{Related Work} % DP, local privacy % Private topic models % Previous
   % work on VI for Poisson factorization
   
   % \section{Generative Processes} In a noiseless model, we assume we have a
@@ -491,7 +636,39 @@
   % from the process above
   
   % \subsection{Computing the ELBO} % Copy from elsewhere (Aaron?)
+  \section{Validation}
+  \label{sec:validation}
+
+  In order to test this result, we generated synthetic count data using a
+  Poisson matrix factorization formulation analogous to the LDA topic model
+  \citep{blei2003latent} with $D$ documents, $V$ unique terms in a document
+  vocabulary, and $K$ latent topics. We first used a Gamma prior to generate two
+  matrices of latent parameters, $\theta$ of dimension $D \times K$ and $\phi$
+  of dimension $K \times V$. We then compute the product of these, $\theta \phi
+  = \Yten$, as the Poisson prior of our data generation process. Finally, we add
+  two-sided geometric noise scaled to $\epsilon / N = 1$, a ratio that applies
+  when the privacy budget $\epsilon$ and the maximum allowed difference between
+  documents $N$ are equal (e.g., a privacy budget of 2 to privatize 2-word
+  spans). We then test our inference procedure to see how closely it estimates
+  the true parameters of the original model. We find that our model successfully
+  converges to within a reasonable estimate of the true model parameters given
+  the data, as demonstrated in a small example in Figure \ref{fig:test_output}.
   
+  
+  Using a larger example of a synthetic 1000-by-1000 matrix of count
+  observations, we test the performance of this algorithm as compared to the
+  performance using inference with MCMC \citep{schein2018locally}. We observe
+  that a single-threaded version of the code from the MCMC implementation, even
+  with optimizations such as reducing the frequency of parameter resampling for
+  the noise distributions, each iteration of inference takes approximately 0.8
+  seconds. Using 4000 iterations of burnin and 1000 to collect samples with 32
+  cores, we are able to take the combined inference time down to 6 minutes
+  (using 200 minutes of observed CPU time), with a final mean average error
+  (MAE) of 0.208. In contrast, our variational inference model takes
+  approximately 2.8 seconds per iteration, and requires only 41-42 iterations to
+  converge across ten trials, resulting in a combined 1 minute of inference (15
+  minutes of observed CPU time) to reach an error of 0.395.  
+
   \section{Discussion}
   We present a new CAVI algorithm for inference of Bayesian Poisson
   factorization models under local privacy. Our method relies on two key
@@ -500,77 +677,19 @@
   integer neighbor of its mean. Using these, we implement a tool with
   significant performance improvements over even an optimized version of the
   prior MCMC algorithm. On a synthetic test case of inferring a rank-50
-  factorization of an 1000 by 1000 data observation matrix, we obtain a 20x
-  speedup in model inference. We detail the construction of this synthetic
-  performance experiment in Appendix \ref{sec:validation}.
+  factorization of an 1000 by 1000 data observation matrix, we obtain a 12x
+  speedup in model inference over convergence of the MCMC method. Though the
+  standard version of our privacy-aware method produces error similar to the
+  naive, non-private implementation of MCMC Bayesian Poisson factorization, we
+  can produce improved results by overestimating the amount of private noise
+  that was added, forcing additional sparsity into the model. Further, we can
+  use this VI procedure as initialization for an MCMC model to improve
+  performance.
   
   \bibliographystyle{plainnat}
   \bibliography{uai_2019}
   
   \appendix
-  
-  \section{Different factorizations of the joint posterior}
-  
-  \label{sec:generative}
-  To find a variational inference algorithm, we leverage existing equivalent
-  characterizations of the generative process for Poisson factorization models
-  under differential privacy.\footnote{Parts of this and Appendix \ref{sec:cavi}
-  have been excerpted from supplementary material in a prior preprint version of
-  \citet{schein2018locally}.} We consider in this case the variable $\ys$ to be
-  a true observed data point, while $\ytPM$ is the observed version with random
-  noise. We treat two-sided geometric noise as being the difference of two
-  Poisson variables $\gP$ and $\gM$, generated with Gamma-distributed priors
-  $\lamP$ and $\lamM$, respectively/ We define $\ytP = \ys + \gP$ and $\ytPM =
-  \ys + \gP - \gM$. We can determine whether $\ytPM$ is positive or negative by
-  comparing the values of $\ytP$ and $\gM$; we refer to the minimum of these two
-  as $\ms$.
-  
-  \begin{equation}
-  P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms\right).
-  \end{equation}
-  The most straightforward factorization of this joint first generates all the
-  Poisson random variables, then computes the remaining variables given their
-  deterministic relationships to the underlying Poissons:
-  \begin{align}
-  &P\left(\gP, \gM, \left(\ysk \right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms \right)\notag\\
-  &\quad=\Pois{\gP; \lamP}\,\Pois{\gM; \lamM} \left(\prod_{k=1}^K \Pois{\ysk; \theta_{dk}\phi_{kv}}\right) \mathbbm{1} \left(\ys = \sum_{k=1}^K \ysk\right)\notag\\
-  &\quad\quad \mathbbm{1}\left(\ytP = \ys + \gP\right) \mathbbm{1}\left(\ytPM = \ytP - \gM\right) \mathbbm{1}\left(\ms = \min\{\ytP, \gM\}\right).
-  \end{align}
-  We can equivalently first generate the sums of Poissons and then thin them
-  using multinomial and binomial draws. In the following equation, the delta
-  functions are implicitly present in the multinomial and binomial PMFs. Note
-  that we write the probability parameters in the multinomial and binomial PMFs
-  as unnormalized vectors. Also note that $\mu_{\subs} = \sum_k \prod_d
-  \theta_{i_d,k}^{(i)}$, where $i_d$ is the index into the $d$th dimension of
-  index vector $\subs$.
-  %
-  \begin{align}
-  &P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms\right) \notag \\
-  &\quad= \Pois{\gM; \lamM} \,
-    \Pois { \ytP; \lamP \tp \mu_{\subs} }
-    \notag \\
-  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP,(\mu_{\subs}, \lamP)\right) \, \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(i)} \Big)_{k=1}^K\right) \notag \\
-  &\quad\quad \mathbbm{1}\left(\ytPM =
-    \ytP - \gM\right) \mathbbm{1} \left( \ms =
-    \min\{\ytP, \gM\} \right) .
-  \end{align}
-  We can equivalently first generate the difference $\ytPM$ and minimum $\ms$ as
-  Skellam and Bessel random variables. Conditioned on these variables, we can
-  then compute $\ytP$ and $\gM$ via their deterministic relationship and,
-  finally, thin $\ytP$ using binomial and multinomial draws:
-    \begin{align}
-  &P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms\right)\notag\\
-    \label{eqn:finalfact}
-  &\quad= \text{Skel}\left(\ytPM;\, \lamP \tp \mu_{\subs},\, \lamM\right)\,\text{Bes}\left(\ms;\, |\ytPM|,\,2\sqrt{\lamM(\lamP+\mu_{\subs})}\right)\notag\\
-  &\quad\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)} \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
-  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP, (\mu_{\subs}, \lamP)\right) \, \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(i)} \Big)_{k=1}^K\right).
-  \end{align}
-  It is this last factorization that enables us to derive the variational
-  distribution.
   
   \section{The Bessel distribution as exponential family}
   \label{sec:expfambessel}
@@ -593,12 +712,15 @@
   I_\nu(a) = \sum_{n=0}^\infty
   \frac{\left(\frac{a}{2}\right)^{2n+\nu}}{n!\, \Gamma(n{+}\nu{+}1)}.
   \end{equation}
+
   For fixed and known $\nu$, we can rewrite the Bessel PMF as
-  \begin{equation}
-    f(n; a, \nu) =
-    \frac{1}{n!\,\Gamma(n{+}\nu{+}1)}\exp\left((2n{+}\nu)\,\log\left(\frac{a}{2}\right)
+  \begin{align}
+    f(n; a, \nu) =&
+    \frac{1}{n!\,\Gamma(n{+}\nu{+}1)} \notag\\
+    &\exp\left((2n{+}\nu)\,\log\left(\frac{a}{2}\right)
     -\log I_\nu(a)\right).
-    \end{equation}
+    \end{align}
+
   We can then define the following functions:
   \begin{align}
   h_\nu(n) &= \frac{1}{n!\,\Gamma(n{+}\nu{+}1)} \\
@@ -606,6 +728,7 @@
   \eta_\nu(a) &= \log\left(\frac{a}{2}\right) \\
   A_\nu(a) &= \log I_\nu(a).
   \end{align}
+
   Finally, we can rewrite the Bessel PMF in the exponential-family form:
   \begin{equation}
   f(n; a, \nu) = h_\nu(n) \exp{\left(\eta_\nu(a) \cdot T_\nu(n) -
@@ -636,9 +759,10 @@
   A Bessel distribution takes two arguments, which we refer to as its \besv,
   $\nu$ and \besa, $a$. The distribution is defined as:
   
-  \[
-      p(x = n | x \sim \Bess{\nu, a}) = \frac{1}{I_{\nu}(a)n!\Gamma(n + \nu + 1)} \left( \frac{a}{2} \right)^{2n + \nu},   
-  \]
+  \begin{align}
+      p(x = n~&|~x \sim \Bess{\nu, a})\notag \\
+      &= \frac{1}{I_{\nu}(a)n!\Gamma(n + \nu + 1)} \left( \frac{a}{2} \right)^{2n + \nu},   
+  \end{align}
   where $I_{\nu}(a)$ is a modified Bessel function of the first kind. The
   arithmetic mean of the distribution is
   \[
@@ -734,100 +858,8 @@
   \]
   \end{proof}
   
-  \section{Deriving the CAVI updates for the variational distribution}
-  \label{sec:cavi}
-  Recall that the observed data consists of the difference variables $\ytPM$.
-  \begin{align}
-    \label{eqn:var1}
-  Q\left(\ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K\right) &\propto \Gq{P(\ytPM, \ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,-)}.
-  \end{align}
-  Because the likelihood (i.e., the Skellam term) in
-  equation~\ref{eqn:finalfact} does not depend on any of these latent variables,
-  it disappears entirely.  We can then rewrite the right-hand side of
-  equation~\ref{eqn:var1} as:
-  \begin{align}
-  &\Gq{P(\ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,\ytPM-)}\notag\\
-  &\quad= \Gq{\text{Bes}\left(\ms;\, |\ytPM|,\,2\sqrt{\lamM(\lamP+\mu_{\subs})}\right)}\notag\\
-  &\quad\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)} \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
-  &\quad\quad \Gq{\text{Binom}\left((\ys, \gP);\,
-      \ytP, (\mu_{\subs}, \lamP)\right) \,
-      \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys,
-      \Big( \prod_d \theta_{i_d,k}^{(i)} \Big)_{k=1}^K\right)}.
-    \end{align}
-    Theorem 6.1 states that the Bessel distribution for fixed first parameter is
-    an exponential family. We can therefore use standard results to push in the
-    geometric expectations:
-    \begin{align}
-  &\Gq{P(\ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,\ytPM-)}\notag\\
-  &= \text{Bes}\left(\ms;\, | \ytPM|,\,2\sqrt{\Gq{\lamM}(\Gq{\lamP +\mu_{\subs}})}\right)\notag\\
-  &\quad\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)} \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
-  &\quad\quad \text{Binom}\left((\ys, \gP);\,
-      \Eq{\ytP}, (\Gq{\mu_{\subs}},
-      \Gq{\lamP})\right)\notag\\
-      &\quad\quad \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \Eq{\ys}, \Big(\Gq{ \prod_d \theta_{i_d,k}^{(i)} }\Big)_{k=1}^K\right).
-  \end{align}
   
-  There are two expectations that do not have an analytic form:
-  \begin{align}
-  \Gq{\lamP + \mu_{\subs}} &= \exp\left(\Eq{\ln \left(\lamP
-    + \sum_{k=1}^K \prod_d \theta_{i_d,k}^{(i)} \right)}\right)
-  \intertext{and}
-  \Gq{\mu_{\subs}} &= \exp\left(\Eq{\ln \left(\sum_{k=1}^K \prod_d \theta_{i_d,k}^{(i)} \right)}\right);
-  \end{align}
-  however, both can be very closely approximated using the delta
-  method~\citep{ver2012invented}, which has been previously used in variational
-  inference schemes to approximate intractable
-  expectations~\citep{braun2010variational,wang2013variational}. In particular,
-  for some variable $Y = f(X)$, expectation $\mathbbm{E}[Y]$ is approximately:
-  \begin{equation}
-  \mathbbm{E}[Y] = \mathbbm{E}[f(X)] \approx f\left(\mathbbm{E}[X]\right) + \frac{1}{2} \, f''\left(\mathbbm{E}[X]\right) \mathbbm{V}[X].
-  \end{equation}
-  In our case, we can consider the two-dimensional Poisson matrix factorization
-  case where $\subs$ are represented by row $d$ and column $v$. We therefore
-  have
-  \begin{align}
-  \Eq{\ln \mu_{dv}} = \Eq{\ln\left(\sum_{k=1}^K \theta_{dk}\phi_{kv}\right)} &\approx \ln\left(\Eq{\sum_{k=1}^K \theta_{dk}\phi_{kv}}\right) - \frac{\mathbbm{V}_{Q}\left[\sum_{k=1}^K \theta_{dk} \phi_{kv}\right]}{2 \, \left(\Eq{\sum_{k=1}^K \theta_{dk} \phi_{kv}}\right)^2} \\
-  &= \ln\left(\sum_{k=1}^K \Eq{\theta_{dk}}\Eq{\phi_{kv}}\right) - \frac{\sum_{k=1}^K \Vq{\theta_{dk} \phi_{kv}}}{2 \, \left(\sum_{k=1}^K \Eq{\theta_{dk}} \Eq{\phi_{kv}}\right)^2}.
-  \end{align}
-  Finally, because $\theta_{dk}$ and $\phi_{kv}$ are independent, we have
-  \begin{equation}
-  \Vq{\theta_{dk} \phi_{kv}} = \Vq{\theta_{dk}} \Vq{\phi_{kv}} + \Vq{\theta_{dk}} \left(\Eq{\phi_{kv}}\right)^2 + \Vq{\phi_{kv}} \left(\Eq{\theta_{dk}}\right)^2.
-  \end{equation}
   
-  \section{Validation}
-  \label{sec:validation}
-  In order to test this result, we generated synthetic count data using a
-  Poisson matrix factorization formulation analogous to the LDA topic model
-  \citep{blei2003latent} with $D$ documents, $V$ unique terms in a document
-  vocabulary, and $K$ latent topics. We first used a Gamma prior to generate two
-  matrices of latent parameters, $\theta$ of dimension $D \times K$ and $\phi$
-  of dimension $K \times V$. We then compute the product of these, $\theta \phi
-  = \Yten$, as the Poisson prior of our data generation process. Finally, we add
-  two-sided geometric noise scaled to $\epsilon / N = 1$, a ratio that applies
-  when the privacy budget $\epsilon$ and the maximum allowed difference between
-  documents $N$ are equal (e.g., a privacy budget of 2 to privatize 2-word
-  spans). We then test our inference procedure to see how closely it estimates
-  the true parameters of the original model. We find that our model successfully
-  converges to within a reasonable estimate of the true model parameters given
-  the data, as demonstrated in a small example in Figure \ref{fig:test_output}.
   
-  \begin{figure}[t]
-      \centering
-      \includegraphics[width=0.95\textwidth]{figures/test_output.pdf}
-      \caption{Demonstration of the results of the VI inference process for a 20-word, 20-document synthetic dataset with 3 latent topics. The true data parameters (a) are recovered well by our inference procedure (d), even though the noisy data (d) is much denser than the true data (c). The mean average error (MAE) between the true model parameters and the inferred parameters under privacy is 0.507, with the individual errors pictured in (e).}
-      \label{fig:test_output}
-  \end{figure}
-  
-  Using a larger example of a synthetic 1000-by-1000 matrix of count
-  observations, we test the performance of this algorithm as compared to the
-  performance using inference with MCMC \citep{schein2018locally}. We observe
-  that a single-threaded version of the code from the MCMC implementation, even
-  with optimizations such as reducing the frequency of parameter resampling for
-  the noise distributions, each iteration of inference takes approximately 0.8
-  seconds. Using 5000 iterations of burnin and 2500 to collect samples, this
-  takes a combined 1.67 hours to infer, with a final mean average error (MAE) of
-  0.36. In contrast, our variational inference model takes approximately 2.8
-  seconds per iteration, and typically requires 100 iterations to converge,
-  resulting in a combined 5 minutes of inference to reach error of 0.52.  
 
 \end{document}
