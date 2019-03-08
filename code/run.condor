@@ -4,7 +4,15 @@ notification = Never
 output = logs/stdout_$(Cluster)_$(Process).txt
 error = logs/stderr_$(Cluster)_$(Process).txt
 log = logs/runlog_$(Cluster)_$(Process).txt
-arguments = $(Process)
 getenv = True
 
-queue 1
+arguments = 0.0 $(Process)
+queue 10
+arguments = 0.049787 $(Process)
+queue 10
+arguments = 0.135335 $(Process)
+queue 10
+arguments = 0.367879 $(Process)
+queue 10
+arguments = 0.606531 $(Process)
+queue 10

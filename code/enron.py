@@ -24,20 +24,31 @@ def main(rank, priv, input_data, output_model, n_top_words=25, max_iter=200, alp
     output_data_shape = data_DV.shape
     noisy_data_DV = data_DV + two_sided_geometric(priv, size=output_data_shape)
 
+    epoch_length = max_iter
     n_docs, n_words = data_DV.shape
-
-    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=max_iter, alpha=alpha, tol=1e-8, true_mu=data_DV)
+    n_epochs = max_iter / epoch_length
+    
+    # Nonprivate
     # bptf_model = BPTF(n_modes=2, n_components=rank, verbose=True, max_iter=max_iter, alpha=alpha, tol=1e-4, true_mu=data_DV)
-    (new_theta, new_phi) = bpptf_model.fit_transform(noisy_data_DV, priv)
     # (new_theta, new_phi) = bptf_model.fit_transform(noisy_data_DV)
-    new_phi = new_phi.T
-    np.savez_compressed(output_model, theta_DK=new_theta, phi_KV=new_phi, alpha=priv)
 
-    print 'Topics:'
-    top_words = np.argpartition(new_phi, n_words - n_top_words)[:,-n_top_words:]
-    for topic in xrange(rank):
-        top_word_vals = zip(-new_phi[topic, top_words[topic]], vocab[top_words[topic]])
-        print topic, ' '.join(['{}'.format(wd) for (_, wd) in sorted(top_word_vals)])
+    def print_topics(new_phi):
+        print 'Topics:'
+        top_words = np.argpartition(new_phi, n_words - n_top_words)[:,-n_top_words:]
+        for topic in xrange(rank):
+            top_word_vals = zip(-new_phi[topic, top_words[topic]], vocab[top_words[topic]])
+            print topic, ' '.join(['{}'.format(wd) for (_, wd) in sorted(top_word_vals)])
+    
+    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=epoch_length, alpha=alpha, tol=1e-8, true_mu=data_DV)
+    (new_theta, new_phi) = bpptf_model.fit_transform(noisy_data_DV, priv)
+    new_phi = new_phi.T
+    print_topics(new_phi)
+    for i in range(1, n_epochs):
+        bpptf_model._update(noisy_data_DV, priv)
+        new_phi = bpptf_model.theta_E_DK_M[1].T
+        print_topics(new_phi)
+
+    np.savez_compressed(output_model, model=bpptf_model)
 
 
 if __name__ == '__main__':
