@@ -93,17 +93,8 @@
 \maketitle
 
 \begin{abstract}
-    Recent work \citep{schein2018locally} introduces a locally private method to
-    infer Poisson factorization models by first applying differentially private
-    noise, then using Bayesian inference to estimate the true data priors given
-    knowledge of the random noise distribution. While the existing work uses an
-    MCMC algorithm, this sampling-based method can be slow for high-dimensional
-    datasets such as those for language models or large-scale social networks.
-    We improve on this method with a coordinate ascent variational inference
-    algorithm to infer factorization models efficiently from private data. Our
-    model relies on several new properties we prove about Bessel distributions.
-    Our method produces a factor of 20 speedup over a comparable MCMC
-    implementation in a synthetic experiment for model inference.
+    Recent work by \citet{schein2018locally} introduced a privacy-preserving MCMC method for posterior inference in Poisson factorization models. This method first applies differentially private noise to the observed count data and then estimates the locally-private posterior distribution over latent variables conditioned on the noised data and knowledge of the noise mechanism. MCMC methods can be computationally burdensome for high-dimensional datasets such as those for language models or large-scale social networks. We improve over the approach of \citet{schein2018locally} by introducing a privacy-preserving variational inference algorithm for posterior inference in Poisson factorization models. Our method produces a factor of 20 speedup over the comparable MCMC
+    implementation in realistic synthetic experiments. Our method also relies on several novel properties that we prove about the Bessel distribution.~\looseness=-1
   \end{abstract}
 
   \section{Introduction}
