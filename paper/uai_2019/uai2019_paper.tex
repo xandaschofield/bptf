@@ -7,6 +7,7 @@
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 % \usepackage{microtype}      % microtypography \usepackage{color}
 \usepackage{natbib}
+\usepackage{multirow}
 
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{bbm}
@@ -511,13 +512,13 @@
     \centering
     \includegraphics[width=0.95\textwidth]{figures/test_output.pdf}
     \caption{Demonstration of the results of the VI inference process for a
-     50-word, 50-document synthetic dataset with 5 latent topics. The true
-     data parameters (a) are recovered better by our inference procedure (e)
-     than by naive variational inference (d), even though the noisy data (c)
-     is much denser than the true data (b). Though inconsistent, in some random
-     trials where we incorrectly informed the model that $\epsilon / N = 0.9$,
-     our estimates of the prior, while lower-magnitude, would be closer to the
-     true model.}
+     50-word, 50-document synthetic dataset with 5 latent topics and Gamma prior
+     parameters of shape 0.5 and rate 1. The true data parameters (a) are
+     recovered better by our inference procedure (e) than by naive variational
+     inference (d), even though the noisy data (c) is much denser than the true
+     data (b). Though inconsistent, in some random trials where we incorrectly
+     informed the model that $\epsilon / N = 0.9$, our estimates of the prior,
+     while lower-magnitude, would be closer to the true model.}
     \label{fig:test_output}
 \end{figure*}
   %\section{Related Work} % DP, local privacy % Private topic models % Previous
@@ -654,7 +655,72 @@
   converges to within a reasonable estimate of the true model parameters given
   the data, as demonstrated in a small example in Figure \ref{fig:test_output}.
   
-  
+  \begin{table*}[t]
+    \center
+    \small
+    \begin{tabular}{|p{1.3in}|r p{4.2in}|}
+      \hline
+      Nonprivate with true data
+      & 1  & 000 year billion dollars budget million fiscal tax program expenditures \\
+      & 2  & people education jobs american life workers work better million good \\
+      \multirow{2}{1in}{40 iterations, $MAE = 0.0897$}
+      & 3 & new children energy environment america help schools school technology science \\
+      & 4 & health care work security insurance people make social welfare americans \\    
+      \hline
+
+      Naive VI
+      & 1  & year billion dollars federal budget programs fiscal government million program \\
+      & 2  & work people americans children make help let america need know \\
+      \multirow{2}{1in}{52 iterations, $MAE = 0.0157$}
+      & 3 & congress act energy states national program legislation economic america law \\
+      & 4 & health care new congress year insurance medical americans legislation government \\     
+      \hline
+
+      Private VI
+      & 1 & 000 year million fiscal billion dollars years budget increase expenditures \\
+      & 2 & know work children welfare people year reform new believe america \\
+      \multirow{2}{1in}{100 iterations, $MAE = 0.0157$}
+      & 3 & government congress energy federal national act states new policy program \\
+      & 4 & health care government federal public security insurance congress new make \\
+      \hline
+      
+      \multirow{2}{1in}{Private VI inferred with $\epsilon/N = 2$}
+      & 1 & year budget federal tax fiscal dollars billion expenditures increase government \\
+      & 2 & children education health help new school schools americans care tax \\
+      \multirow{2}{1in}{100 iterations, $MAE = 0.00710$}
+      & 3 & economic congress employment percent policies growth production government \\
+      & 4 & program service health new million congress welfare year programs care \\
+      \hline
+    \end{tabular}
+    \caption{Sample topics from 20-topic models inferred using our VI inference methods with privacy set to $\epsilon/N = 5$. MAE is measured with respect to the nonprivate documents.}
+    \label{tab:results_topics}
+  \end{table*}
+
+  \begin{table}[h]
+    \center
+    \small
+    \begin{tabular}{|l|r|r|}
+      \hline
+      Method & Iterations & MAE \\
+      \hline
+      Naive MCMC & 5000 burnin + 1000 & 0.396 \\
+      Private MCMC & 3000 burnin + 1000 & 0.208 \\
+      Private MCMC & 2000 burnin + 1000 & 0.224 \\
+      \hline 
+      Naive VI & 42 & 0.492 \\
+      Naive VI & 100 & 0.465 \\
+      Private VI & 42 (converged) & 0.396 \\
+      Private VI, $\epsilon/N = 0.8$ & 42 (converged) & 0.349 \\
+      \hline
+      Private MCMC, VI init & 1000 burnin + 1000 & 0.223 \\
+      Private MCMC, VI init & 2000 burnin + 1000 & 0.208 \\
+      \hline
+    \end{tabular}
+    \caption{MAE over estimates of the Poisson model parameters inferred over the
+    same 1000-by-1000 matrix with 50 latent components and noise scaled to $\epsilon/N = 1$. MCMC results used the algorithm from \cite{schein2018locally} were averaged over 10 samples taken 100 iterations apart after burnin.}
+    \label{tab:results_synth}
+  \end{table}
+
   Using a larger example of a synthetic 1000-by-1000 matrix of count
   observations, we test the performance of this algorithm as compared to the
   performance using inference with MCMC \citep{schein2018locally}. We observe
@@ -662,12 +728,26 @@
   with optimizations such as reducing the frequency of parameter resampling for
   the noise distributions, each iteration of inference takes approximately 0.8
   seconds. Using 4000 iterations of burnin and 1000 to collect samples with 32
-  cores, we are able to take the combined inference time down to 6 minutes
-  (using 200 minutes of observed CPU time), with a final mean average error
-  (MAE) of 0.208. In contrast, our variational inference model takes
-  approximately 2.8 seconds per iteration, and requires only 41-42 iterations to
-  converge across ten trials, resulting in a combined 1 minute of inference (15
-  minutes of observed CPU time) to reach an error of 0.395.  
+  cores, we are able to take the combined inference time down to 5 minutes
+  (using 160 minutes of observed CPU time). In contrast, our variational
+  inference model takes approximately 2.8 seconds per iteration, and requires
+  only 41-42 iterations to converge across ten trials, resulting in a combined 1
+  minute of inference (16 minutes of observed CPU time). Depending on the
+  parallelization available, this method offers a 5-10x speedup over the fast
+  inference method. This improvement should increase significantly as the size
+  of the observed data increases.
+
+
+  To evaluate our synthetic data experiments, we compare estimates of the true
+  Poisson parameters $\mus$ used to generate our synthetic data and the inferred
+  parameters of each model. We use mean average error (MAE) over our data entries
+  to consider this. We compare the existing MCMC algorithm and our new variational
+  inference algorithm, with a baseline for each being the output of a model in which
+  it is assumed no random noise was given (termed the ``naive'' model).
+  
+  The result of these synthetic experiments are shown in Table \ref{tab:results_synth}. We observe that our informed VI approach performs similarly to a naive MCMC approach, i.e., one in which the model is unaware of the addition of two-sided geometric noise. In investigating, we find this to be a consequence of a common result of variational inference, in which the variance is underestimated \cite{blei2017variational}. To test whether this might be contributing, we experiment with giving our VI method false information, specifying the magnitude of the private noise as slightly larger than what was actually added. We empirically find for this synthetic setting that setting the expected privacy budget to $\epsilon / N = 0.8$, this improves results, as shown in the table. (A lower $\epsilon$ value corresponds to a stronger privacy guarantee, and thus more random noise.) Depending on the dataset size and expected shape and rate parameters of the true data, the best estimate here may vary; for our smaller synthetic experiment in Figure \ref{fig:test_output}, we found $\epsilon / N = 0.9$ to be more effective, though it less consistently outperformed our true model.
+
+  To demonstrate that this model can learn interesting patterns on larger scale data, we also consider topic output for a topic model. We display topic model results in Table \ref{tab:results_topics} using a dataset of paragraphs from all United States State of the Union addresses through 2009, with standard English stopwords removed. Again, we find that our model incorrectly estimates variance, producing results worse than naive variational inference. However, if we perform inference with an overestimate of the private noise, we can produce much better topics than the naive method. We even observe that this allows some regularization effect, as the resulting MAE is lower than on a model learned directly on the nonprivate data.
 
   \section{Discussion}
   We present a new CAVI algorithm for inference of Bayesian Poisson
@@ -677,7 +757,7 @@
   integer neighbor of its mean. Using these, we implement a tool with
   significant performance improvements over even an optimized version of the
   prior MCMC algorithm. On a synthetic test case of inferring a rank-50
-  factorization of an 1000 by 1000 data observation matrix, we obtain a 12x
+  factorization of an 1000 by 1000 data observation matrix, we obtain a 10x
   speedup in model inference over convergence of the MCMC method. Though the
   standard version of our privacy-aware method produces error similar to the
   naive, non-private implementation of MCMC Bayesian Poisson factorization, we
