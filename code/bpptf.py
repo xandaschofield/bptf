@@ -73,7 +73,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         self.n_modes = n_modes
         self.n_components = n_components
-        self.min_iter = 1
+        self.min_iter = 5
         self.max_iter = max_iter
         self.tol = tol
         self.smoothness = smoothness
@@ -373,7 +373,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
         if self.verbose:
             print('ITERATION %d:\t'\
                   'Time: %f\t'\
-                  'Objective: %.2f\t'\
+                  'Objective: %.5f\t'\
                   'Change: %.5e\t'\
                 % (0, 0.0, mu_diff, np.nan))
 
@@ -412,11 +412,11 @@ class BPPTF(BaseEstimator, TransformerMixin):
             if self.verbose:
                 print('ITERATION %d:\t'\
                       'Time: %f\t'\
-                      'Objective: %.2f\t'\
+                      'Objective: %.5f\t'\
                       'Change: %.5e\t'\
                       % (itn+1, e, mu_diff, delta))
 
-            if abs(delta) < self.tol:
+            if itn > self.min_iter and delta < self.tol:
                 break
 
     def set_component(self, m, theta_E_DK, theta_G_DK, theta_shp_DK, theta_rte_DK):
@@ -456,23 +456,24 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
     def fit(self, data, priv, mask=None):
         assert data.ndim == self.n_modes
-        data = preprocess(data)
-        if isinstance(data, skt.dtensor):
-            self.data_DIMS = data.copy()
-        else:
-            self.data_DIMS = skt.sptensor(
-                tuple((np.copy(ds) for ds in data.subs)),
-                data.vals.copy())
+        self.data_DIMS = preprocess(data)
+        data_shape = self.data_DIMS.shape
+        #if isinstance(data, skt.sptensor):
+        #    self.data_DIMS = skt.sptensor(
+        #        tuple((np.copy(ds) for ds in data.subs)),
+        #        data.vals.copy())
+        #else:
+        #    self.data_DIMS = data.copy()
 
         if mask is not None:
             mask = preprocess(mask)
-            assert data.shape == mask.shape
+            assert data_shape == mask.shape
             assert is_binary(mask)
             assert np.issubdtype(mask.dtype, int)
-        self._init_all_components(data.shape)
+        self._init_all_components(data_shape)
         if priv > 0:
-            self._init_privacy_variables(data.shape, priv)
-        self._update(data, priv=priv, mask=mask)
+            self._init_privacy_variables(data_shape, priv)
+        self._update(self.data_DIMS, priv=priv, mask=mask)
         return self
 
     @property
