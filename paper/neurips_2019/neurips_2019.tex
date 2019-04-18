@@ -98,8 +98,6 @@
 
 \newtheorem{proposition}{Proposition}
 
-% Set the typeface to Times Roman
-\usepackage{times}
 
 \title{A Variational Approach for Locally Private Inference of Poisson Factorization Models}
 
@@ -447,9 +445,20 @@ This second factorization enables direct closed-form inference: unlike in
   between the optimal message and ours is small. Under the optimal $Q^*(\ms)$,
   this message equals the \emph{expected value} under the Bessel distribution in
   Equation~\ref{eqn:opt} while in our solution, it equals the \emph{mode} of
-  that same distribution. To bound the error between these two, we prove a
-  third proposition:
+  that same distribution.
   
+  \begin{figure}[t]
+    \centering
+    \includegraphics[width=0.4\textwidth]{figures/besselmode}
+    \caption{Several comparisons of the mode versus the mean of the Bessel distribution. Each color represents a choice of $\nu$, with shapes of markers denoting the mode versus the mean.}
+    \label{fig:besselmode}
+  \end{figure}
+
+  Fortunately, we empirically observe that these values are close.
+  Figure \ref{fig:besselmode} shows that, though the mode is an integer-valued staircase distribution compared to the continuous mean, these quantities remain close across different parameter values of $\nu$ and $\alpha$.
+  We can even provide a theoretical bound for the error between these two, which we prove in a
+  third proposition:
+
   \begin{proposition} (Proven in appendix.) The absolute
   difference between the mean and mode of the Bessel distribution is bounded by
   1:
@@ -523,15 +532,13 @@ This second factorization enables direct closed-form inference: unlike in
 
   \begin{figure*}[t]
     \centering
-    \includegraphics[width=0.95\textwidth]{figures/test_output.pdf}
+    \includegraphics[width=0.8\textwidth]{figures/test_output.pdf}
     \caption{Demonstration of the results of the VI inference process for a
      50-word, 50-document synthetic dataset with 5 latent topics and Gamma prior
      parameters of shape 0.5 and rate 1. The true data parameters (a) are
      recovered better by our inference procedure (e) than by \naive~variational
      inference (d), even though the noisy data (c) is much denser than the true
-     data (b). Though inconsistent, in some random trials where we incorrectly
-     informed the model that $\epsilon / N = 0.9$, our estimates of the prior,
-     while lower-magnitude, would be closer to the true model.}
+     data (b).}
     \label{fig:test_output}
 \end{figure*}
   
@@ -555,9 +562,35 @@ This second factorization enables direct closed-form inference: unlike in
   the true parameters of the original model. We find that our model successfully
   converges to within a reasonable estimate of the true model parameters given
   the data, as demonstrated in a small example in Figure \ref{fig:test_output}.
-  
+
   \begin{table}[t]
     \center
+    \small
+    \begin{tabular}{|l|r|r|}
+      \hline
+      Method & Iterations & MAE \\
+      \hline
+      \Naive~MCMC & 5000 burnin + 1000 & 0.396 \\
+      Private MCMC & 3000 burnin + 1000 & 0.208 \\
+      Private MCMC & 2000 burnin + 1000 & 0.224 \\
+      \hline 
+      \Naive~VI & 42 & 0.492 \\
+      \Naive~VI & 100 & 0.465 \\
+      Private VI & 42 (converged) & 0.396 \\
+      \hline
+      Private MCMC, VI init & 1000 burnin + 1000 & 0.223 \\
+      Private MCMC, VI init & 2000 burnin + 1000 & 0.208 \\
+      \hline
+    \end{tabular}
+    \vspace{0.2cm}
+    \caption{MAE over estimates of the Poisson model parameters inferred over the
+    same 1000-by-1000 matrix with 50 latent components and noise scaled to $\epsilon/N = 1$. MCMC results used the algorithm from \cite{schein2018locally} were averaged over 10 samples taken 100 iterations apart after burnin.}
+    \label{tab:results_synth}
+  \end{table}
+
+  \begin{table}[t]
+    \center
+    \resizebox{\textwidth}{!}{%
     \small
     \begin{tabular}{|p{1.3in}|r p{4.2in}|}
       \hline
@@ -584,42 +617,10 @@ This second factorization enables direct closed-form inference: unlike in
       & 3 & government congress energy federal national act states new policy program \\
       & 4 & health care government federal public security insurance congress new make \\
       \hline
-      
-      \multirow{2}{1in}{Private VI inferred with $\epsilon/N = 2$}
-      & 1 & year budget federal tax fiscal dollars billion expenditures increase government \\
-      & 2 & children education health help new school schools americans care tax \\
-      \multirow{2}{1in}{100 iterations, \textbf{MAE = 0.00710}}
-      & 3 & economic congress employment percent policies growth production government \\
-      & 4 & program service health new million congress welfare year programs care \\
-      \hline
-    \end{tabular}
+    \end{tabular}}
+    \vspace{0.2cm}
     \caption{Sample topics from 20-topic models inferred using our VI inference methods with privacy set to $\epsilon/N = 5$. MAE measured against the nonprivate data is lower for our method when we overestimate privacy than in a nonprivate model.}
     \label{tab:results_topics}
-  \end{table}
-
-  \begin{table}[h]
-    \center
-    \small
-    \begin{tabular}{|l|r|r|}
-      \hline
-      Method & Iterations & MAE \\
-      \hline
-      \Naive~MCMC & 5000 burnin + 1000 & 0.396 \\
-      Private MCMC & 3000 burnin + 1000 & 0.208 \\
-      Private MCMC & 2000 burnin + 1000 & 0.224 \\
-      \hline 
-      \Naive~VI & 42 & 0.492 \\
-      \Naive~VI & 100 & 0.465 \\
-      Private VI & 42 (converged) & 0.396 \\
-      Private VI, $\epsilon/N = 0.8$ & 42 (converged) & 0.349 \\
-      \hline
-      Private MCMC, VI init & 1000 burnin + 1000 & 0.223 \\
-      Private MCMC, VI init & 2000 burnin + 1000 & 0.208 \\
-      \hline
-    \end{tabular}
-    \caption{MAE over estimates of the Poisson model parameters inferred over the
-    same 1000-by-1000 matrix with 50 latent components and noise scaled to $\epsilon/N = 1$. MCMC results used the algorithm from \cite{schein2018locally} were averaged over 10 samples taken 100 iterations apart after burnin.}
-    \label{tab:results_synth}
   \end{table}
 
   Using a larger example of a synthetic 1000-by-1000 matrix of count
@@ -651,17 +652,7 @@ This second factorization enables direct closed-form inference: unlike in
   similarly to a \naive~MCMC approach, i.e., one in which the model is unaware of
   the addition of two-sided geometric noise. In investigating, we find this to
   be a consequence of a common result of variational inference, in which the
-  variance is underestimated \cite{blei2017variational}. To test whether this
-  might be contributing, we experiment with giving our VI method false
-  information, specifying the magnitude of the private noise as slightly larger
-  than what was actually added. We empirically find for this synthetic setting
-  that setting the expected privacy budget to $\epsilon / N = 0.8$, this
-  improves results, as shown in the table. (A lower $\epsilon$ value corresponds
-  to a stronger privacy guarantee, and thus more random noise.) Depending on the
-  dataset size and expected shape and rate parameters of the true data, the best
-  estimate here may vary; for our smaller synthetic experiment in Figure
-  \ref{fig:test_output}, we found $\epsilon / N = 0.9$ to be more effective,
-  though it less consistently outperformed our true model.
+  variance is underestimated \cite{blei2017variational}.
 
   To demonstrate that this model can learn interesting patterns on larger scale
   data, we also consider topic output for a topic model. We display topic model
