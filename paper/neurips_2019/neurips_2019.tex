@@ -1,18 +1,37 @@
-% Sample LaTeX file for creating a paper in the Morgan Kaufmannn two column, 8
-% 1/2 by 11 inch proceedings format.
+\documentclass{article}
 
-\documentclass[letterpaper]{article}
-\usepackage{uai2019}
-\usepackage[margin=1in]{geometry}
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2019
+
+% ready for submission
+% \usepackage{neurips_2019}
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2019}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+     \usepackage[final]{neurips_2019}
+
+% to avoid loading the natbib package, add option nonatbib:
+%     \usepackage[nonatbib]{neurips_2019}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
-% \usepackage{microtype}      % microtypography \usepackage{color}
+\usepackage{microtype}      % microtypography
+
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{graphicx}
+\usepackage{bbm}
+\usepackage{latexsym}
 \usepackage{natbib}
 \usepackage{multirow}
-
-\usepackage{amsmath,amssymb,amsthm}
-\usepackage{bbm}
-\usepackage{graphicx}
-\usepackage{mdframed,relsize}
 
 \newcommand{\Yten}{\pmb{Y}}
 \newcommand{\subs}{\pmb{i}}
@@ -85,7 +104,6 @@
 \title{A Variational Approach for Locally Private Inference of Poisson Factorization Models}
 
 \author{} % LEAVE BLANK FOR ORIGINAL SUBMISSION.
-          % UAI  reviewing is double-blind.
 
 % \author{\Name{Alexandra Schofield} \Email{xanda@cs.cornell.edu} \AND
 % \Name{Aaron Schein} \Email{aschein@cs.umass.edu} \AND \Name{Zhiwei Steven Wu}
@@ -96,8 +114,17 @@
 \maketitle
 
 \begin{abstract}
-    Recent work by \citet{schein2018locally} introduced a privacy-preserving MCMC method for posterior inference in Poisson factorization models. This method first applies differentially private noise to the observed count data and then estimates the locally-private posterior distribution over latent variables conditioned on the noised data and knowledge of the noise mechanism. MCMC methods can be computationally burdensome for high-dimensional datasets such as those for language models or large-scale social networks. We improve over the approach of \citet{schein2018locally} by introducing a privacy-preserving variational inference algorithm for posterior inference in Poisson factorization models. Our method produces a factor of 20 speedup over the comparable MCMC
-    implementation in realistic synthetic experiments. Our method also relies on several novel properties that we prove about the Bessel distribution.~\looseness=-1
+    Recent work \citep{schein2018locally} introduces a locally private method to
+    infer Poisson factorization models by first applying differentially private
+    noise, then using Bayesian inference to estimate the true data priors given
+    knowledge of the random noise distribution. While the existing work uses an
+    MCMC algorithm, this sampling-based method can be slow for high-dimensional
+    datasets such as those for language models or large-scale social networks.
+    We improve on this method with a coordinate ascent variational inference
+    algorithm to infer factorization models efficiently from private data. Our
+    model relies on several new properties we prove about Bessel distributions.
+    Our method produces a factor of 20 speedup over a comparable MCMC
+    implementation in a synthetic experiment for model inference.
   \end{abstract}
 
   \section{Introduction}
@@ -284,81 +311,83 @@
 
   To find a variational inference algorithm, we leverage existing equivalent
   characterizations of the generative process for Poisson factorization models
-  under differential privacy as provided by \citep{schein2018locally}.
-  We consider in this case the variable $\ys$ to be
-  a true observed data point, while $\ytPM$ is the observed version with random
-  noise. We treat two-sided geometric noise as the difference of two
-  Poisson variables $\gP$ and $\gM$, generated with Gamma-distributed priors
-  $\lamP$ and $\lamM$, respectively/ We define $\ytP = \ys + \gP$ and $\ytPM =
-  \ys + \gP - \gM$. We can determine whether $\ytPM$ is positive or negative by
-  comparing the values of $\ytP$ and $\gM$; we refer to the minimum of these two
-  as $\ms$.
-  \begin{equation}
-  P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms\right).
-  \end{equation}
+  under differential privacy as provided by \citep{schein2018locally}. We
+  consider in this case the variable $\ys$ to be a true observed data point,
+  while $\ytPM$ is the observed version with random noise. We treat two-sided
+  geometric noise as the difference of two Poisson variables $\gP$ and $\gM$,
+  generated with Gamma-distributed priors $\lamP$ and $\lamM$, respectively. We
+  define auxiliary variables $\ytP = \ys + \gP$ and $\ytPM = \ys + \gP - \gM$ to
+  represent a two-step process of adding the two ``sides'' of the noise function
+  as Poisson variables. We introduce another auxiliary variable, $\ms$, to
+  describe the minimum of $\ytP$ and $\gM$. The sign of observed variable
+  $\ytPM$ is sufficient to determine which variable $\ms$ represents: if $\ytPM
+  \leq 0$, then $\ms = \ytP$, and if $\ytPM \geq 0$, then $\ms = \gM$. If $\ytPM
+  = 0 = \gM$, both these equations are satisfied.
 
-  The key feature of the variable scheme to describe these processes is the
-  two-step sampling procedure of a value of the sensitive count $\ys$ as a
-  latent variable:
-  The key feature of this variable scheme is that it permits a statistical formulation of the generative process that joins together quantities drawn from the Poisson parameters of interest (e.g., the latent topics) and the noise distribution:
-\begin{equation}
-  \label{eqn:bess}
-  \compcond{\yvtP} \sim \Multi{\ytP, (\lamP, \mu_{\subs 1}, \dots, \mu_{\subs K})}.
-\end{equation}
+  The key feature of this variable scheme is that it permits a statistical
+  formulation of the generative process that joins together quantities drawn from
+  the Poisson parameters of interest and the noise
+  distribution:
+  \begin{equation}
+    \compcond{\yvtP} \sim \Multi{\ytP, (\lamP, \mu_{\subs 1}, \dots, \mu_{\subs K})}.
+  \end{equation} 
   Here, $\yvtP=(\gP, y_{\subs 1}, \dots, y_{\subs K})$ is a vector of latent
   sub-counts that sum to $\ytP$. The first of these sub-counts, $\gP$, represents
   the positive Poisson noise added to the sensitive data $\ys=\sum_{k=1}^K \ysk$,
   while the latter sub-counts correspond to each latent component in non-private
   Poisson factorization.
 
-  In this formulation, $\ytP$ is defined deterministically as the maximum of
-  $\ms$ and $\ms + \ytPM$. The noisy observation $\ytPM$ and $\yvtP=(\gP,
-  y_{\subs 1}, \dots, y_{\subs K})$ is a vector of latent sub-counts that sum to
-  $\ytP$: the first of these sub-counts $\gP$ represents the positive noise
-  added to the sensitive data $\ys=\sum_{k=1}^K \ysk$, while the latter
-  sub-counts constitute the vector of sub-counts corresponding to each latent
-  component in non-private Poisson factorization.
+To infer LPBPF, one may first infer the sums of Poisson distributions of the
+underlying data, then thin them using multinomial and binomial draws. In these
+equations, delta functions $\mathbbm{1}\left( \cdot \right)$ describe
+mathematical constraints that must be met deterministically according to the
+definitions of auxiliary variables. Some distributions have their own implicit
+delta function: for example, a multinomial distribution $\Multi(\vec{x}; n,
+\vec{p})$, which describes the probability of drawing a vector $\vec{x}$ of
+counts given $n$ draws from a categorical distribution with probabilities
+$\vec{p}$ of each outcome, implicitly constrains the sum of $\vec{x}$ to be
+equal to $n$.
 
-  One way to characterize this process is to first generate the sums of Poisson
-  distributions of the underlying data, then thin them
-  using multinomial and binomial draws. In the following equation, the delta
-  functions are implicitly present in the multinomial and binomial PMFs. Note
-  that we write the probability parameters in the multinomial and binomial PMFs
-  as unnormalized vectors. Also note that $\mu_{\subs} = \sum_k \prod_d
-  \theta_{i_d,k}^{(d)}$, where $i_d$ is the index into the $d$th dimension of
-  index vector $\subs$.
-  %
-  \begin{align}
-  &P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms\right) \notag \\
-  &\quad= \Pois{\gM; \lamM} \,
+Note that we sometimes write the probability parameters in the multinomial and
+binomials as unnormalized vectors instead of proper probability distributions.
+Also, $\mu_{\subs} = \sum_k \prod_d
+\theta_{i_d,k}^{(d)}$, where $i_d$ is the index into the $d$th dimension of
+index vector $\subs$.
+
+This gives the following equation as the full generative process of LPBPF:
+\begin{align} 
+  P &\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
+    \ytP, \ytPM, \ms\right) = \notag \\
+  &\quad\quad \Pois{\gM; \lamM} \,
     \Pois { \ytP; \lamP \tp \mu_{\subs} }
     \notag \\
-  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP,(\mu_{\subs}, \lamP)\right) \, \notag \\
-  &\quad\quad \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(d)} \Big)_{k=1}^K\right) \notag \\
+  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP,(\mu_{\subs}, \lamP)\right) \, \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(d)} \Big)_{k=1}^K\right) \notag \\
   &\quad\quad \mathbbm{1}\left(\ytPM =
     \ytP - \gM\right) \mathbbm{1} \left( \ms =
     \min\{\ytP, \gM\} \right) .
-  \end{align}
+\label{eq:lpbpfpois}
+\end{align}
 
-  Equivalently, we may first generate the difference $\ytPM$ and minimum $\ms$ as
-  Skellam and Bessel random variables. Conditioned on these variables, we can
-  then compute $\ytP$ and $\gM$ via their deterministic relationship and,
-  finally, thin $\ytP$ using binomial and multinomial draws:
-    \begin{align}
-  &P\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
-    \ytP, \ytPM, \ms\right)\notag\\
-    \label{eqn:finalfact}
-  &\quad= \text{Skel}\left(\ytPM;\, \lamP \tp \mu_{\subs},\, \lamM\right)\,\notag \\
-  &\quad\quad \text{Bes}\left(\ms;\, |\ytPM|,\,2\sqrt{\lamM(\lamP+\mu_{\subs})}\right)\notag\\
-  &\quad\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)}\notag \\
-  &\quad\quad \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
-  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP, (\mu_{\subs}, \lamP)\right) \,\notag\\
-  &\quad\quad \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(d)} \Big)_{k=1}^K\right).
-  \end{align}
-  It is this last factorization that enables us to derive the variational
-  distribution.
+Another way to describe this process flips the order of generation from the
+actual process used in creation of the private data. Here, we describe first
+generating $\ytPM$ and minimum $\ms$ as Skellam and Bessel random variables
+conditioned on what would have been the priors of $\ytP$ and $\gM$. We then
+compute $\ytP$ and $\gM$ via their deterministic relationship and, finally, thin
+$\ytP$ into the vector of counts per latent component $\yvtP$ using binomial and
+multinomial draws:
+\begin{align}
+    P &\left(\gP, \gM, \left(\ysk\right)_{k=1}^K, \ys,
+    \ytP, \ytPM, \ms\right) = \notag \\
+  &\quad\quad \text{Skel}\left(\ytPM;\, \lamP \tp \mu_{\subs},\, \lamM\right)\, \text{Bes}\left(\ms;\, |\ytPM|,\,2\sqrt{\lamM(\lamP+\mu_{\subs})}\right)\notag\\
+  &\quad\quad \mathbbm{1} \left(\ytP=\ms\right)^{\mathbbm{1}(\ytPM \leq 0)} \mathbbm{1} \left(\gM=\ms\right)^{\mathbbm{1}(\ytPM > 0)} \mathbbm{1}\left(\ytPM = \ytP - \gM\right)\notag\\
+  &\quad\quad \text{Binom}\left((\ys, \gP);\, \ytP, (\mu_{\subs}, \lamP)\right) \,  \text{Mult}\left(\left(\ysk\right)_{k=1}^K;\, \ys, \Big( \prod_d \theta_{i_d,k}^{(d)} \Big)_{k=1}^K\right).
+\label{eqn:finalfact}
+\end{align}
+This second factorization enables direct closed-form inference: unlike in
+  Equation \ref{eq:lpbpfpois}, $\ytPM$ can be connected directly to the
+  parameters of interest for the latent model, $\musk$, without necessarily
+  having a good direct estimate of $\ys$. It is this last factorization that
+  enables us to derive the variational distribution.
 
   
   \section{Locally private variational inference for Poisson factorization}
@@ -384,7 +413,7 @@
 
   Towards this, we prove two propositions:
   
-  \begin{proposition} (Proven in Appendix \ref{sec:expfambessel}.) The Bessel
+  \begin{proposition} (Proven in appendix.) The Bessel
   distribution $m \sim \Bess{\nu, a}$ for fixed $\nu$ is an exponential family
   with sufficient statistic $T_{\nu}(m) \teq 2m \tp \nu$, natural parameter
   $\eta_{\nu}(m)\teq \log(\frac{a}{2})$, and base measure $h_{\nu}(m) \teq
@@ -401,7 +430,6 @@
   \end{split}
   \end{align}
   \end{proposition}
-  
 
   Unfortunately, selecting the Bessel distribution as the family for $Q(\ms)$
   prevents a closed-form solution to $Q^*(\yvtP)$: specifically, it results in
@@ -432,7 +460,7 @@
   that same distribution. To bound the error between these two, we prove a
   third proposition:
   
-  \begin{proposition} (Proven in Appendix \ref{sec:besselmode}.) The absolute
+  \begin{proposition} (Proven in appendix.) The absolute
   difference between the mean and mode of the Bessel distribution is bounded by
   1:
     \[ \big| \mathbbm{E}_{\Bess{m; \nu, a})}[m]  - \textup{mode} \left(\Bess{m;
@@ -442,8 +470,8 @@
   Equations~\ref{eqn:opt} and~\ref{eqn:opt-multi} provide solutions to the main
   challenge of deriving a tractable and nearly optimal variational family. The
   closed-form solutions to the optimal variational families for all other
-  auxiliary variables are more straightforward to derive and we give them in the
-  supplementary material (see Appendix \ref{sec:cavi}). There is one final
+  auxiliary variables are more straightforward to derive.
+  There is one final
   challenge: the log term inside the expectation $\Gq{\lamP \tp \mus} =
   e^{\Eq{\ln \lamP \tp \mus}}$ in Equation~\ref{eqn:opt} prevents the derivation
   of a closed form. However, we can derive a first-order Taylor approximation
@@ -521,122 +549,10 @@
      while lower-magnitude, would be closer to the true model.}
     \label{fig:test_output}
 \end{figure*}
-  %\section{Related Work} % DP, local privacy % Private topic models % Previous
-  % work on VI for Poisson factorization
   
-  % \section{Generative Processes} In a noiseless model, we assume we have a
-  % tensor of true observed count data $\Yten$ with $M$ modes, each with a
-  % dimension $d_1, \dots, d_M$. For standard Poisson tensor factorization, we
-  % assume this data to be drawn from an entry-wise Poisson prior $\hat{\Yten}$
-  % with a CP (Canonical Polyadic) decomposition into $M$ matrices $\theta^{(1)}
-  % \dots \theta^{(M)}$ with a low-rank internal dimension $K$: 
+  \subsection{Computing the ELBO} % Copy from elsewhere (Aaron?)
   
-  % \begin{equation} \Yten \sim \Pois{\Yten; \hat{\Yten}}, \text{ where }
-  %     \hat{\Yten} = \sum_{k=1}^{K} \factori{1}_{:,k} \otimes \dots \otimes
-  %     \factori{M}_{:,k}. \label{eq:bptf_full} \end{equation}
   
-  % This is effectively the sum of $K$ rank-1 tensors of the same dimensions as
-  % $\pmb{Y}$, where the $k$th rank-1 tensor in the sum is described as the
-  % Kronecker product of the $k$th column vector of each factor matrix
-  % $\factori{i}$. Note that the dimension of the $i$th mode factor matrix
-  % $\factori{i}$ is $d_i \times k$. In Bayesian Poisson Tensor Factorization,
-  % we also assume a Gamma prior over each of the latent factor matrices with
-  % shape parameter $\alpha$ and rate $\alpha \beta$.\footnote{This
-  % characterization ensures that the expectation of the Gamma distribution can
-  % be expressed as a function of only $\beta$.}
-  
-  % Our algorithm applies \emph{limited-precision local privacy} to our data,
-  % guaranteeing that for some maximum distance between private items $n$, it
-  % will be statistically indistinguishable up to a factor $\epsilon$ of privacy
-  % as to whether or not a given element is present in the original data. The
-  % privacy algorithm we use takes in a tensor of privacy parameters $\pmb{E}$,
-  % where each entry $\epsilon_{\subs}$ specifies the amount of privacy budget
-  % required for entry $\ys$ in the true data. We can also generate a tensor
-  % $\pmb{N}$ defining each $n_{\subs}$ as the maximum distance over which to
-  % preserve privacy between $\ys$ and its neighbors.
-  
-  % To make our data private, we add two-sided geometric (2SG) noise
-  % \cite{ghosh_universally_2012}. We use $\epsilon_{\subs}$ and $n_{\subs}$
-  % values to compute our 2SG noise parameter $\alpha_{\subs}$: \begin{equation}
-  % \alpha_{\subs} = n_{\subs} \ln{\frac{1}{\epsilon_{\subs}}}. \end{equation}
-  % We can recharacterize 2SG noise as the difference between two Poisson
-  % distributions, which offers one alternate way to write out our generative
-  % process: for each entry $\ys$ in our unnoised data, we sample priors for the
-  % each of the two Poisson noise variables $\lamP$ and $\lamM$ from an
-  % exponential distribution of parameter $\frac{\alpha}{1 - \alpha}$. Then, we
-  % sample $\gP$ from a Poisson of parameter $\lamP$, and $\gM$ likewise from
-  % $\lamM$. The noise added is $\gP - \gM$.
-  
-  % Our final reported noisy data $\tilde{\Yten}$ is the tensor where geometric
-  % noise has been added to each entry of the original tensor. These data should
-  % be sparse (though less than before) and integer-valued, but they may not be
-  % non-negative.
-  
-  % The model above ties together the two models through the $\Yten$ data: the
-  % expectation of the true data from the privacy model inference can be used
-  % directly in BPTF in place of the true data. Another way to tie the models
-  % together, however, is through the inferred Poisson parameters $\hat{\Yten}$.
-  % We can write a different generative procedure that generates $\gPM$ based on
-  % the observation of the noisy data $\ytPM$ and the corresponding Poisson
-  % prior $\ysh$. First, we use the Skellam distribution to sample $\ytPM$ using
-  % the priors $\lamPM$ and $\Yten$ directly, with the same generative process
-  % as before for these parameters. Then, we can sample the minimum $m$ of $\gM$
-  % and $\ys + \gP$ from a Bessel distribution, observing that the difference
-  % between these two is $\ytPM$.
-  
-  % The joint posterior of the above method is:
-  
-  % \begin{align} \begin{split} P(-) =\ &   % P distribution \Exp{\lamP;
-  %     \frac{\alpha}{1 - \alpha}} \Exp{\lamM; \frac{\alpha}{1 - \alpha}}
-  %     \Skel{\ytPM; \ysh + \lamP, \lamM}\\
-  %         &\Bess{\omega_{\subs}; |\ytPM|, 2 \sqrt{(\ysh + \lamP) \lamM}} \\
-  %         &\Multi{(\wsu{y}{1}, \dots, \wsu{y}{K}, \gP); \ytP,
-  %         \left(\frac{\wsu{\hat{y}}{1}}{\ytP}, \dots,
-  %         \frac{\wsu{\hat{y}}{K}}{\ytP}, \frac{\lamP}{\ytP} \right)} \\
-  %         &\Delt{\ytP = \omega_{\subs}}^{\Delt{\ytPM \leq 0}} \Delt{\gM =
-  %         \omega_{\subs}}^{\Delt{\ytPM > 0}} \Delt{\ytPM = \ytP - \gM}.
-  %         \end{split} \end{align}
-  
-  % \section{Variational Procedure} In order to infer a variational inference
-  % procedure for inferring a private Poisson factorization model, we wish to
-  % ensure that all of the relevant distributions for our updates can be
-  % expressed as exponential family. The Poisson, gamma, and exponential
-  % distributions are all well-known exponential family distributions; however,
-  % the Bessel distribution is not. However, we prove that the Bessel
-  % distribution $m \!\sim\!\Bess(\nu, a)$ can be treated as an exponential
-  % family function with a fixed $\nu$. This suits the scenario of our inference
-  % procedure, where $\nu$ is defined by the true data $\ytPM$, which is
-  % observed at inference time.
-  
-  % \subsection{Privacy parameter updates} % Lambdas come from gamma variational
-  % parameters delta and gamma % Many of our parameters are redundant, so we
-  % just focus on inferring m, the true y_dvk, and lambdas % Lambda rate is
-  % constant, so just need shape for lambda^{\pm} Unfortunately, the natural
-  % $q$-distribution for $m$ causes problems for typical inference.
-  % Specifically, it requires using $\Expect[\ytP]$ as the number of samples
-  % from a binomial distribution, which could be a non-integer. Instead, we
-  % replace the $q$-distribution with a delta spike centered on the \emph{mode}
-  % of the Bessel distribution whose arguments are defined as before. While the
-  % mode and mean of the Bessel are not equal, the mode is still within a small
-  % constant range of the arithmetic expectation of $m$:
-  
-  % \begin{equation} \big| \Expect [\Bess{m; a, \nu}]  - \text{mode}(\Bess{m; a,
-  %     \nu}) \big|  \leq 1. \end{equation}
-  
-  % The intuitive meaning of this is that the mode of the Bessel distribution is
-  % guaranteed to be one of the two integers closest to the mean of the
-  % distribution. (We omit the proof here for the sake of concision.) This makes
-  % the mode a natural integer substitute to use for the real-valued expectation
-  % of the Bessel distribution in settings where we need integral values. %
-  % define Q using delta-spike using mode instead of mean, prove ok (Xanda) % To
-  % handle m, we use a mode approximation (which we can prove is close % to the
-  % mean) % True y_dvk fall out from this
-  
-  % \subsection{Poisson Factorization parameter updates} % These updates are
-  % basically the same as before, just conditioned on the true y_dvk inferred
-  % from the process above
-  
-  % \subsection{Computing the ELBO} % Copy from elsewhere (Aaron?)
   \section{Validation}
   \label{sec:validation}
 
@@ -655,13 +571,13 @@
   converges to within a reasonable estimate of the true model parameters given
   the data, as demonstrated in a small example in Figure \ref{fig:test_output}.
   
-  \begin{table*}[t]
+  \begin{table}[t]
     \center
     \small
     \begin{tabular}{|p{1.3in}|r p{4.2in}|}
       \hline
       Nonprivate with true data
-      & 1  & ### year billion dollars budget million fiscal tax program expenditures \\
+      & 1  & \#\#\# year billion dollars budget million fiscal tax program expenditures \\
       & 2  & people education jobs american life workers work better million good \\
       \multirow{2}{1in}{40 iterations, MAE = 0.0897}
       & 3 & new children energy environment america help schools school technology science \\
@@ -677,7 +593,7 @@
       \hline
 
       Private VI
-      & 1 & ### year million fiscal billion dollars years budget increase expenditures \\
+      & 1 & \#\#\# year million fiscal billion dollars years budget increase expenditures \\
       & 2 & know work children welfare people year reform new believe america \\
       \multirow{2}{1in}{100 iterations, MAE = 0.0157}
       & 3 & government congress energy federal national act states new policy program \\
@@ -687,14 +603,14 @@
       \multirow{2}{1in}{Private VI inferred with $\epsilon/N = 2$}
       & 1 & year budget federal tax fiscal dollars billion expenditures increase government \\
       & 2 & children education health help new school schools americans care tax \\
-      \multirow{2}{1in}{100 iterations, \textbf{MAE = 0.00710}
+      \multirow{2}{1in}{100 iterations, \textbf{MAE = 0.00710}}
       & 3 & economic congress employment percent policies growth production government \\
       & 4 & program service health new million congress welfare year programs care \\
       \hline
     \end{tabular}
     \caption{Sample topics from 20-topic models inferred using our VI inference methods with privacy set to $\epsilon/N = 5$. MAE measured against the nonprivate data is lower for our method when we overestimate privacy than in a nonprivate model.}
     \label{tab:results_topics}
-  \end{table*}
+  \end{table}
 
   \begin{table}[h]
     \center
@@ -766,7 +682,7 @@
   data, we also consider topic output for a topic model. We display topic model
   results in Table \ref{tab:results_topics} using a dataset of paragraphs from
   all United States State of the Union addresses through 2009, with standard
-  English stopwords removed and numerical sequences replaced with ``###''.
+  English stopwords removed and numerical sequences replaced with ``\#\#\#''.
   Again, we find that our model incorrectly estimates variance, producing
   results worse than \naive~variational inference. However, if we perform
   inference with an overestimate of the private noise, we can produce much
@@ -785,206 +701,13 @@
   factorization of an 1000 by 1000 data observation matrix, we obtain a 10x
   speedup in model inference over convergence of the MCMC method. Though the
   standard version of our privacy-aware method produces error similar to the
-  naive, non-private implementation of MCMC Bayesian Poisson factorization, we
+  \naive, non-private implementation of MCMC Bayesian Poisson factorization, we
   can produce improved results by overestimating the amount of private noise
   that was added, forcing additional sparsity into the model. Further, we can
   use this VI procedure as initialization for an MCMC model to improve
   performance.
   
   \bibliographystyle{plainnat}
-  \bibliography{uai_2019}
+  \bibliography{neurips_2019}
   
-  \appendix
-  
-  \section{The Bessel distribution as exponential family}
-  \label{sec:expfambessel}
-  
-  \textbf{Theorem 1}
-    \label{theorem:expfam}
-    \textit{The Bessel distribution $m \!\sim\!\textrm{Bes}(\nu, a)$ for fixed
-   $\nu$ is an exponential family with sufficient statistic $T_\nu(m) \teq 2m
-   \tp \nu$, natural parameter $\eta_\nu(m) \teq \log\left(\frac{a}{2}\right)$,
-   and base measure $h_\nu(m) \teq \frac{1}{m!\,\Gamma(m+\nu+1)}$.}
-
-\begin{proof}
-The Bessel distribution \cite{yuan2000bessel} is a distribution whose support is the natural numbers:
-  \begin{equation}
-  f(k; a, \nu) = \frac{\left(\frac{a}{2}\right)^{2k+\nu}}{k!\, \Gamma(k + \nu + 1) I_\nu(a)}.
-  \label{eq:besseldist}
-  \end{equation}
-
-The name Bessel refers to the inclusion of $I_\nu(a)$, a modified Bessel function of the
-  first kind:
-  \begin{equation}
-  I_\nu(a) = \sum_{n=0}^\infty
-  \frac{\left(\frac{a}{2}\right)^{2n+\nu}}{n!\, \Gamma(n +\nu + 1)}.
-    \end{equation}
-
-To qualify as an exponential family distribution, the probability mass function in Equation \ref{eq:besseldist} must factor into the following exponentiated structure:
-\begin{equation}
-    pmf(x; \vec{\theta}) = h(x) e^{\eta(\theta) \dot T(x) - A(\theta)},
-\end{equation}
-where $x$ is the sampled value and $\theta$ are the distribution parameters.
-It is important that the natural parameters $\eta$ depend only on the parameters $\theta$, not the data, $x$.
-Similarly, the sufficient statistics, $T(x)$, reflect only the data and not the parameters.
-The function is normalized by a base measure $h(x)$ and a log partition $A(\theta)$.
-
-To put the Bessel function with fixed $\nu$ into an exponential family form, we need to factorize into terms depending only on $a$ and terms depending only on $k$.
-As we are treating $\nu$ as an integer constant instead of a parameter, we will rewrite the PMF as $f_{\nu}$ and replace the Gamma function with a factorial:
-
-\begin{equation}
-    f_{\nu}(k; a) = \frac{\left(\frac{a}{2}\right)^{2k+\nu}}{k! (k + \nu)! I_\nu(a)}.
-\end{equation}
-
-We then separate out the terms into those depending on $a$, $k$, or both:
-
-\begin{equation}
-    f_{\nu}(k; a) = (k!(k + \nu)!)^{-1} \cdot (I_{\nu}(a))^{-1} \cdot \frac{a}{2}^{2k + \nu}.
-\end{equation}
-
-We can take $h(k) = (k!(k + \nu)!)^{-1}$ to be the base measure,
-and exponentiate the rest:
-
-\begin{equation}
-    f_{\nu}(k; a) = h(k) e^{(2k + \nu)(\log(a/2)) - \log(I_{\nu}(a)))}.
-\end{equation}
-
-From here, the other three functions fall out, giving the full form:
-
-\begin{align}
-  h(k) &= (k!(k + \nu)!)^{-1} \\
-  T(k) &= 2k + \nu \\
-  \eta(a) &= \log\left(\frac{a}{2}\right) \\
-  A(a) &= \log I_\nu(a).
-\end{align}
-
-This shows that with fixed $\nu$, the PMF $f_{\nu}(k; a)$ of the Bessel distribution is exponential family.
-\end{proof}
-  
-  \section{The mode and mean of the Bessel distribution}
-  \label{sec:besselmode}
-  
-  \textbf{Proposition 3}
-    \label{theorem:besselmode}
-    \textit{The mode of a Bessel distribution for parameters $a, \nu$ can be a constant-bounded approximation of the mean:}
-  
-  \[
-      \big| \mathbbm{E}_{\Bess{m; \nu, a})}[m]  - \textup{mode} \left(\Bess{m; a, \nu} \right) \big|  \leq 1.  
-  \]
-  
-  The intuitive meaning of this is that the mode of the Bessel distribution is
-  guaranteed to be one of the two integers closest to the mean of the
-  distribution. Given one of these two integers will always be the best integer
-  approximation of this number, we can also say that there cannot exist an
-  integer approximation of the mean of the Bessel that is strictly between the
-  mode and the mean of the Bessel distribution.
-  
-  \begin{proof}
-  
-  A Bessel distribution takes two arguments, which we refer to as its \besv,
-  $\nu$ and \besa, $a$. The distribution is defined as:
-  
-  \begin{align}
-      p(x = n~&|~x \sim \Bess{\nu, a})\notag \\
-      &= \frac{1}{I_{\nu}(a)n!\Gamma(n + \nu + 1)} \left( \frac{a}{2} \right)^{2n + \nu},   
-  \end{align}
-  where $I_{\nu}(a)$ is a modified Bessel function of the first kind. The
-  arithmetic mean of the distribution is
-  \[
-      \mathbbm{E}_{\Bess{m; \nu, a})}[m] = \frac{a}{2} R_{\nu}(a),
-  \]
-  with $R_{\nu}(a)$ referring to the ratio of two Bessel functions:
-  \[
-      \frac{I_{\nu + 1}(a)}{I_{\nu}(a)}.
-  \]
-  
-  The Bessel distribution has one or two neighboring integer modes. The mode can
-  be computed directly from the parameters of the distribution without Bessel
-  functions:
-  \[
-      \textup{mode}(\Bess{\nu, a}) = \bigg \lfloor \frac{\sqrt{a^2 + \nu^2} - \nu}{2} \bigg \rfloor.
-  \]
-  Unlike the mean, which can take arbitrary non-negative real values, the mode
-  is guaranteed by the floor function to be a non-negative integer.
-  
-  We use the following bound on the mean of a Bessel ratio from
-  \citet{devroye2002simulating}:
-  
-  \begin{equation}
-      \frac{a}{\nu + 1 + \sqrt{a^2 + (\nu + 1)^2}} \leq R_{\nu}(a)
-      \leq \frac{a}{\nu + \sqrt{a^2 + \nu^2}}.
-  \end{equation}
-  
-  We multiply through by $\frac{a}{2}$ to bound the mean of the Bessel
-  distribution:
-  
-  \begin{equation}
-      \frac{a^2}{2(\nu + 1 + \sqrt{a^2 + (\nu + 1)^2})} \leq \mathbbm{E}_{\Bess{m; \nu, a})}[m]
-      \leq \frac{a^2}{2(\nu + \sqrt{a^2 + \nu^2})}.
-  \end{equation}
-  
-  We can rewrite these bounds using a difference-of-squares:
-  
-  \begin{align*}
-      \frac{a^2}{2(\nu + \sqrt{a^2 + \nu^2})} &= 
-      \frac{a^2(\sqrt{a^2 + \nu^2} - \nu)}{2(\nu + \sqrt{a^2 + \nu^2})(\sqrt{a^2 + \nu^2} - \nu)} \\
-      &= \frac{a^2(\sqrt{a^2 + \nu^2} - \nu)}{2a^2 + \nu^2 - \nu^2} \\
-      &= \frac{\sqrt{a^2 + \nu^2} - \nu}{2}.
-  \end{align*}
-  
-  This upper bound coincides with the unrounded formulation of the mode. Because
-  the mode is the floor of this quantity, we know it is less than or equal to
-  this upper bound with a difference of less than 1.
-  
-  We can convert the lower bound in the same way:
-  \begin{equation*}
-      \frac{a^2}{2((\nu + 1) + \sqrt{a^2 + (\nu^2 + 1)})} =  \frac{\sqrt{a^2 + (\nu + 1)^2} - (\nu + 1)}{2}.
-  \end{equation*}
-  
-  We are interested in bounding the difference between the upper and lower
-  bounds:
-  \begin{equation}
-      \frac{\sqrt{a^2 + \nu^2} - \nu}{2} - \frac{\sqrt{a^2 + (\nu + 1)^2} - (\nu + 1)}{2} = 
-      \frac{\sqrt{a^2 + \nu^2} + 1 - \sqrt{a^2 + (\nu + 1)^2}}{2}.
-  \end{equation}
-  
-  Knowing that $\nu$ is positive, we can state that $\sqrt{a^2 + \nu^2} <
-  \sqrt{a^2 + (\nu + 1)^2}$, or $\sqrt{a^2 + (\nu + 1)^2} - \sqrt{a^2 + \nu^2} >
-  0$. Based on the upper slice of the triangle in the figure below, the triangle
-  inequality also gives us another bound, that $\sqrt{a^2 + \nu^2} + 1 >
-  \sqrt{a^2 + (\nu + 1)^2}$, or $1 > \sqrt{a^2 + (\nu + 1)^2} - \sqrt{a^2 +
-  \nu^2}$.
-  
-  \begin{center}
-  \includegraphics[width=0.3\textwidth]{figures/triangle-bessel-model}
-  \end{center}
-  Together, these imply that 
-  \[
-      0 \leq \sqrt{a^2 + \nu^2} + 1 - \sqrt{a^2 + (\nu + 1)^2} \leq 1.
-  \]
-  
-  Substituting this in to our computation of the distance between the upper and
-  lower bounds of the mean, we find that
-  \begin{equation}
-  \frac{\sqrt{a^2 + \nu^2} + 1 - \sqrt{a^2 + (\nu + 1)^2}}{2} < \frac{1}{2},
-  \end{equation}
-  
-  or that the inferred upper and lower bounds for the mean of the Bessel
-  distribution produce an interval no larger than $\frac{1}{2}$. The upper bound
-  of this $\frac{1}{2}$ interval is the same as the upper bound of the length-1
-  open interval of the mode of the Bessel. In the most extreme case when the
-  mode is at the bottom end of its range and the mean is at the top, we have
-  \[
-      \mathbbm{E}_{\Bess{m; \nu, a})}[m] - \textup{mode}(\Bess{\nu, a}) < 1.
-  \]
-  In the opposite case, we have 
-  \[
-      \textup{mode}(\Bess{\nu, a}) - \mathbbm{E}_{\Bess{m; \nu, a})}[m] \leq \frac{1}{2} < 1.
-  \]
-  \end{proof}
-  
-  
-  
-  
-
 \end{document}
