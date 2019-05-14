@@ -113,16 +113,17 @@
 
 \begin{abstract}
     Recent work \citep{schein2018locally} introduces a locally private method to
-    infer Poisson factorization models by first applying differentially private
-    noise, then using Bayesian inference to estimate the true data priors given
-    knowledge of the random noise distribution. While the existing work uses an
-    MCMC algorithm, this sampling-based method can be slow for high-dimensional
-    datasets such as those for language models or large-scale social networks.
-    We improve on this method with a coordinate ascent variational inference
-    algorithm to infer factorization models efficiently from private data. Our
-    model relies on several new properties we prove about Bessel distributions.
-    Our method produces a factor of 20 speedup over a comparable MCMC
-    implementation in a synthetic experiment for model inference.
+    infer Poisson factorization models over count data by first applying
+    differentially private noise, then using Bayesian inference to estimate the
+    true data priors given knowledge of the random noise distribution. While the
+    existing work uses an MCMC algorithm, this sampling-based method can be slow
+    for high-dimensional datasets such as those for language models or
+    large-scale social networks. We improve on this method with a coordinate
+    ascent variational inference (CAVI) algorithm to infer factorization models
+    efficiently from private data. Our algorithm relies on several new properties we
+    prove about Bessel distributions. Our algorithm produces a substantial speed
+    improvement over a comparable MCMC algorithm in experiments on private Bayesian
+    matrix factorization over synthetic and real data.
   \end{abstract}
 
   \section{Introduction}
@@ -154,9 +155,6 @@
   email corpus can surface count data such as interactions between parties,
   counts of words in documents, and logs of events and their participants. However, these data may also encode interactions
   and content that their human generators wish to keep private, which risks the model leaking information specific to a few interactions.
-  % Social scientists and people using ML want models on count data That data
-  % can be interactions, word counts, observations of events, and so on, all of
-  % which may be private Aggregating this data in one place may be risky
   
   Most existing methods for private inference of exponential family models
   operate in the \emph{central model}
@@ -271,9 +269,8 @@
   the normalization step--i.e., $p_{\subs k} = \frac{\musk}{\sum_{k'=1}^K
   \mu_{\subs k'}}$. Conditioned on samples of the sub-counts, updates to the
   other latent variables are model-specific---i.e., depend on the particular
-  structure of the rate function and the priors over the parameters. However, in
-  what follows, we derive a general approach that applies to all models with a
-  linear rate $\mus$. 
+  structure of the rate function and the priors over the parameters. However,
+  our derived approach applies to all models with a linear rate $\mus$. 
   
   \textbf{CAVI for Poisson factorization.} The optimal variational family for
   $\yvs$ is proportional to the geometric expectation of its complete
@@ -491,7 +488,7 @@ This second factorization enables direct closed-form inference: unlike in
   equation~\ref{eqn:var1} as:
     
     \begin{align}
-  &\Gq{P(\ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,\ytPM-)} = \notag \\
+  &\Gq{P(\ms, \ytP, \gP, \gM, \ys, \left(\ysk\right)_{k=1}^K \,|\,\ytPM, \alpha)} = \notag \\
   &\quad \quad \text{Bes}\left(\ms;\, | \ytPM|,\,2\sqrt{\Gq{\lamM}\Gq{\lamP +\mu_{\subs}}}\right) \notag \\
   &\quad \quad \text{Binom}\left((\ys);\,
   \Eq{\ytP}, \frac{\Gq{\mu_{\subs}}}{\Gq{\lamP} + \Gq{\mu_{\subs}}},
