@@ -46,59 +46,51 @@ def main(n_docs, n_words, alpha, beta, rank, priv, n_iters=200, out_file='test_o
         np.savez_compressed('test_data.npz', Y_DV=data_DV, noisy_data_DV=noisy_data_DV, phi_KV=phi_KV, theta_DK=theta_DK, mu_DV=poisson_priors_DV)
 
     assert(poisson_priors_DV.shape == (n_docs, n_words))
-    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, true_mu=poisson_priors_DV, tol=1e-6)
+    bpptf_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, true_mu=poisson_priors_DV, tol=1e-4)
     (new_theta, new_phi) = bpptf_model.fit_transform(noisy_data_DV, priv, version='arithmetic')
     new_mu = parafac((new_theta, new_phi))
 
     np.savez_compressed(out_file, inferred_mu_DV=new_mu, inferred_theta_DK=new_theta, inferred_phi_KV=new_phi.T)
 
-    if n_docs > 100 or n_words > 100:
-        return
-
-    naive_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, true_mu=poisson_priors_DV, tol=1e-6)
+    naive_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, true_mu=poisson_priors_DV, tol=1e-4)
     (naive_theta, naive_phi) = naive_model.fit_transform(noisy_data_DV, 0.0, version='arithmetic')
     naive_mu = parafac((naive_theta, naive_phi))
 
-    eager_model = BPPTF(n_modes=2, n_components=rank, verbose=True, max_iter=n_iters, true_mu=poisson_priors_DV, tol=1e-6)
-    (eager_theta, eager_phi) = eager_model.fit_transform(noisy_data_DV, priv / 0.9, version='arithmetic')
-    eager_mu = parafac((eager_theta, eager_phi))
+    if n_docs > 100 or n_words > 100:
+        return
 
     sns.set(context='poster', style='white', font='serif')
     data_max = np.max(noisy_data_DV)
     kwargs = {'cmap': 'bwr', 'vmin': -data_max, 'vmax': data_max, 'square': True, 'cbar': False, 'xticklabels': False, 'yticklabels': False}
     plt.figure(figsize=(22,17))
 
-    plt.subplot(2, 3, 1)
+    plt.subplot(1, 5, 1)
     sns.heatmap(poisson_priors_DV, **kwargs)
     plt.title('(a) True parameters')
-    plt.subplot(2, 3, 2)
+    plt.subplot(1, 5, 2)
     sns.heatmap(data_DV, **kwargs)
     plt.title('(b) Actual data')
-    plt.subplot(2, 3, 3)
+    plt.subplot(1, 5, 3)
     sns.heatmap(noisy_data_DV, **kwargs)
     plt.title('(c) Observed data')
-    plt.subplot(2, 3, 4)
+    plt.subplot(1, 5, 4)
     sns.heatmap(naive_mu, **kwargs)
     plt.title('(d) Naive method, \nmae = {:.3f}'.format(
         np.mean(np.abs(naive_mu - poisson_priors_DV))))
-    plt.subplot(2, 3, 5)
+    plt.subplot(1, 5, 5)
     sns.heatmap(new_mu, **kwargs)
     plt.title('(e) Our method, \nmae = {:.3f}'.format(
         np.mean(np.abs(new_mu - poisson_priors_DV))))
-    plt.subplot(2, 3, 6)
-    sns.heatmap(np.abs(eager_mu - poisson_priors_DV), **kwargs)
-    plt.title('(f) Overestimated method, \nmae = {:.3f}'.format(
-        np.mean(np.abs(eager_mu - poisson_priors_DV))))
 
     plt.savefig('test_output.pdf', bbox_inches='tight')
 
 if __name__ == '__main__':
-    n_docs = 50
-    n_words = 50
+    n_docs = 1000
+    n_words = 1000
     alpha = 0.5
     beta = 1
-    rank = 5
+    rank = 10
     priv = float(sys.argv[1])
     outfile = sys.argv[2]
 
-    main(n_docs, n_words, alpha, beta, rank, priv, n_iters=100, out_file=outfile)
+    main(n_docs, n_words, alpha, beta, rank, priv, n_iters=200, out_file=outfile)

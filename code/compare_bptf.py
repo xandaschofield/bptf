@@ -116,7 +116,7 @@ if __name__ == '__main__':
     alpha = 10
     beta = 1
     rank = 20
-    priv = 0
-    # priv = 0.367879
+    # priv = 0
+    priv = 0.367879
     with launch_ipdb_on_exception():
         main(n_top_words, alpha, beta, rank, priv, n_iters=200)

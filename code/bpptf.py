@@ -14,7 +14,7 @@ import time
 import numpy as np
 import numpy.random as rn
 #pylint: disable=E0611
-from scipy.special import gammaln, iv, psi
+from scipy.special import digamma, gammaln, iv, psi
 import sktensor as skt
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -146,7 +146,7 @@ class BPPTF(BaseEstimator, TransformerMixin):
         # bound += _gamma_bound_term(a, a, gamma_b, rho_b).sum()
         # return bound
 
-    def _elbo(self, data, mask=None):
+    def _elbo(self, priv, mask=None):
         """Computes the Evidence Lower Bound (ELBO).
 
         Arguments
@@ -159,7 +159,6 @@ class BPPTF(BaseEstimator, TransformerMixin):
             Masks sections of the data, with 1s indicating data regions that
             are kept.
         """
-        # raise NotImplementedError
         if mask is None:
             uttkrp_K = self.sum_theta_E_MK.prod(axis=0)
         elif isinstance(mask, skt.dtensor):
@@ -171,12 +170,12 @@ class BPPTF(BaseEstimator, TransformerMixin):
 
         bound = -uttkrp_K.sum()
 
-        if isinstance(data, skt.dtensor):
-            subs_I_M = data.nonzero()
-            vals_I = data[subs_I_M]
-        elif isinstance(data, skt.sptensor):
-            subs_I_M = data.subs
-            vals_I = data.vals
+        if isinstance(self.y_E_DIMS, skt.sptensor):
+            subs_I_M = self.y_E_DIMS.subs
+            vals_I = self.y_E_DIMS.vals
+        else:
+            subs_I_M = self.y_E_DIMS.nonzero()
+            vals_I = self.y_E_DIMS[subs_I_M]
         nz_recon_I = self._reconstruct_nz(subs_I_M)
 
         bound += (vals_I * np.log(nz_recon_I)).sum()
@@ -188,15 +187,18 @@ class BPPTF(BaseEstimator, TransformerMixin):
                                        qa=self.theta_shp_DK_M[m],
                                        qb=self.theta_rte_DK_M[m]).sum()
             bound += K * self.mode_dims[m] * self.alpha * np.log(self.beta_M[m])
+
+        # Privacy variables
+        if priv > 0:
+            log_lam_E_2DIMS = digamma(self.lam_shp_2DIMS) - np.log(self.lam_rte_DIMS)
+            bound -= np.sum(parafac(self.theta_E_DK_M))
+            bound -= np.sum(np.log(self.y_pos_E_DIMS[np.nonzero(self.y_pos_E_DIMS)]))
+            bound += np.log(priv) * np.sum(self.g_pos_E_DIMS + self.g_neg_E_DIMS)
+            bound += np.sum(self.lam_shp_2DIMS / self.lam_rte_DIMS) / priv
+            bound -= np.sum(self.g_pos_E_DIMS * log_lam_E_2DIMS)
+            bound += np.sum(self.y_pos_E_DIMS * np.log(self.mu_G_DIMS + np.exp(log_lam_E_2DIMS[0])))
         return bound
 
-    def stochastic_elbo(self):
-        # - sample lambdas from Q distribution, then compute
-        # ln p and ln q for lambdas and gs (using fixed m)
-        # - ydvks have to be poisson sampled one dv at a time to avoid
-        # making the full mu_dvk prior tensor
-        # - thetas can be computed directly from the previous formula
-        pass
 
     def _init_all_components(self, mode_dims):
         assert len(mode_dims) == self.n_modes
@@ -365,58 +367,61 @@ class BPPTF(BaseEstimator, TransformerMixin):
             if isinstance(data, skt.sptensor):
                 self.y_E_DIMS = self.y_E_DIMS.toarray()
 
-        if not self.debug and self.true_mu is not None:
-            mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
-        else:
-            mu_diff = -1
-
+        curr_elbo = np.infty
         if self.verbose:
-            print('ITERATION %d:\t'\
-                  'Time: %f\t'\
-                  'Objective: %.5f\t'\
-                  'Change: %.5e\t'\
-                % (0, 0.0, mu_diff, np.nan))
-
+            if not self.debug and self.true_mu is not None:
+                print('Iteration\tTime\tELBO\tMAE')
+            else:
+                print('Iteration\tTime\tELBO')
+            # print('ITERATION %d:\t'\
+            #       'Time: %f\t'\
+            #       'Mu: %.5e\t'\
+            #     % (0, 0.0, np.nan))
+            
+        s = time.time()
         for itn in range(self.max_iter):
-            s = time.time()
+            old_params = self.theta_E_DK_M.copy()
+            
             if priv is not None and priv > 0:
                 self._update_mins(mask=mask)
                 self._update_y(mask=mask)
                 self._update_lam_shp(mask=mask)
-                if self.verbose:
-                    print "Privacy values:"
-                    self._print_arr_stats(self.min_DIMS, "m")
-                    self._print_arr_stats(self.y_E_DIMS, "y")
-                    self._print_arr_stats(self.lam_shp_2DIMS[0], "lam+")
-                    self._print_arr_stats(self.lam_shp_2DIMS[1], "lam-")
+                # if self.verbose:
+                #     print "Privacy values:"
+                #     self._print_arr_stats(self.min_DIMS, "m")
+                #     self._print_arr_stats(self.y_E_DIMS, "y")
+                #     self._print_arr_stats(self.lam_shp_2DIMS[0], "lam+")
+                #     self._print_arr_stats(self.lam_shp_2DIMS[1], "lam-")
 
             self._update_mu(mask=mask)
             for m in modes:
                 self._update_theta_gamma(m)
                 self._update_theta_delta(m, mask)
                 self._update_cache(m)
-                if self.verbose:
-                    self._print_arr_stats(self.theta_E_DK_M[m], 'theta_%d' % m)
+                # if self.verbose:
+                #     self._print_arr_stats(self.theta_E_DK_M[m], 'theta_%d' % m)
 
                 if (m == 0 or not self.debug) and itn >= self.beta_burnin:
                     self._update_beta(m)  # must come after cache update!
                 self._check_component(m)
 
-            if not self.debug and self.true_mu is not None:
-                old_mu_diff = mu_diff
-                mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
-                delta = (old_mu_diff - mu_diff)
-            else:
-                delta = np.infty
             e = time.time() - s
-            if self.verbose:
-                print('ITERATION %d:\t'\
-                      'Time: %f\t'\
-                      'Objective: %.5f\t'\
-                      'Change: %.5e\t'\
-                      % (itn+1, e, mu_diff, delta))
 
-            if itn > self.min_iter and delta < self.tol:
+            prev_elbo = curr_elbo
+            curr_elbo = self._elbo(priv)
+            elbo_delta = (curr_elbo - prev_elbo)/abs(curr_elbo)
+
+            if self.verbose:
+                # print('ITERATION %d:\t'\
+                #       'Time: %f\t'\
+                #       'ELBO change: %.5e\t'\
+                #       % (itn+1, e, elbo_delta))
+                if not self.debug and self.true_mu is not None:
+                    mu_diff = np.abs(self.mu_G_DIMS - self.true_mu).mean()
+                    print('%d\t%f\t%.5e\t%5e' % (itn+1, e, curr_elbo, mu_diff))
+                else:
+                    print('%d\t%f\t%.5e\t%5e' % (itn+1, e, curr_elbo))
+            if itn >= self.min_iter and elbo_delta < self.tol:
                 break
 
     def set_component(self, m, theta_E_DK, theta_G_DK, theta_shp_DK, theta_rte_DK):

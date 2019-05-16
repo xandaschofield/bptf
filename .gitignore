@@ -4,6 +4,9 @@
 *.fls
 *.fdb_latexmk
 *.npz
+*.out
 *.blg
 *.log
 *.synctex.gz
+code/.vscode/settings.json
+*.tsv
