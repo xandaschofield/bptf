@@ -33,7 +33,8 @@
 \usepackage{latexsym}
 \usepackage{natbib}
 \usepackage{multirow}
-
+\newtheorem{theorem}{Theorem}
+\newtheorem{definition}{Definition}
 \newcommand{\Yten}{\pmb{Y}}
 \newcommand{\subs}{\pmb{i}}
 \newcommand{\wsu}[2]{#1_{\subs #2}}
@@ -209,8 +210,7 @@
   distributions.
   
   Though this prior work has promising implications for future study of private
-  count data, the MCMC inference procedure used for this method is known to have
-  significant obstacles to scale to large data. First, it requires sampling from the Bessel
+  count data, the MCMC inference procedure \swedit{suffers from two scalability issues}. First, it requires sampling from the Bessel
   distribution, which is much slower than sampling for nonprivate Poisson
   factorization. Second, the addition of private noise produces a denser matrix
   of observations, in which no observed zero entry in the data is necessarily a
@@ -229,10 +229,11 @@
   \emph{mode} of the optimal Bessel distribution (which is integral, by
   definition). We show that this approximation is appropriate by proving the
   absolute difference between the mean and mode of a Bessel distribution is
-  bounded by one. Finally, we show that in a synthetic experiment, this method
+  bounded by \swedit{1}. Finally, we show that in a synthetic experiment, this method
   converges to reasonable estimates of the true model parameters orders of
   magnitude faster than the prior MCMC approach.
-  
+
+  \swcomment{hmm, we don't seem to directly address the second dense data issue?}
   \section{Background}
 
   \begin{figure*}[t]
@@ -247,7 +248,80 @@
     \label{fig:test_output}
   \end{figure*}
 
-  \textbf{Bayesian inference} consists of approximating the posterior
+
+\swcomment{inserting privacy stuff here..}
+
+\textbf{Local differential privacy.} We focus on local differential
+privacy, which we refer to as local privacy. Under this criterion, the
+observations remain private from even the data analysis algorithm. The
+algorithm sees only privatized versions of the observations,
+constructed by adding noise from specific distributions. The process
+of adding noise is known as randomized response---a reference to
+survey-sampling methods originally developed in the social sciences
+prior to the development of differential
+privacy~\citep{warner1965randomized}.
+
+\begin{definition}
+  \label{def:local_privacy}
+A randomized response method $\mathcal{R}(\cdot)$ is $\epsilon$-private if for all pairs of observations $y, y' \in \mathcal{Y}$\looseness=-1
+\begin{equation}
+  \label{eqn:local_privacy}
+    P\left(\mathcal{R}(y) \in \mathcal{S}\right) \leq e^\epsilon
+      P\left(\mathcal{R}(y') \in \mathcal{S}\right),
+        \end{equation}
+for all subsets $\mathcal{S}$ in the range of $\mathcal{R}(\cdot)$.
+If a data analysis algorithm sees only the observations'
+$\epsilon$-private responses, then the data analysis itself satisfies
+$\epsilon$-local privacy.
+\end{definition}
+
+To guarantee local privacy, a randomized response method must satisfy
+the condition in equation~\ref{eqn:local_privacy} for all pairs of
+observations. This typically involves adding noise that scales with
+the maximum difference between any pair of observations
+$N^{(\textrm{max})} = \max_{y, y'}\|y \tm y'\|_1$. When an observation
+is a document, $N^{(\textrm{max})}$ can be prohibitively large,
+meaning that the noise can overwhelm the signal in the data set. This
+challenge motivates the following alternative formulation of local
+privacy.\looseness=-1
+
+
+\textbf{Limited-precision local privacy.} Local privacy requires that
+a randomized response method render indistinguishable pairs of
+observations that are arbitrarily different. In some contexts, this
+requirement is unnecessarily strong. For example, the author of a
+document may only wish to conceal the occurrence of a handful of word
+types. To achieve this goal, a randomized response method need only
+render indistinguishable pairs of \emph{similar} documents, such as a
+document in which those word types occur and an otherwise-identical
+document in which they do not. We operationalize this kind of
+privacy guarantee by generalizing definition~\ref{def:local_privacy} as
+follows.\looseness=-1
+
+\begin{definition}
+\label{def:lplp}
+For any positive integer $N$, we say that a randomized response method
+$\mathcal{R}(\cdot)$ is $(N, \epsilon)$-private if for all pairs of
+observations $y, y' \in \mathcal{Y}$ such that $\|y - y'\|_1 \leq N$
+\begin{equation}
+  \label{eqn:lp_local_privacy}
+    P\left(\mathcal{R}(y) \in \mathcal{S}\right) \leq e^\epsilon
+      P\left(\mathcal{R}(y') \in \mathcal{S}\right),
+        \end{equation}
+for all subsets $\mathcal{S}$ in the range of $\mathcal{R}(\cdot)$.
+If a data analysis algorithm sees only the observations' $(N,
+\epsilon)$-private responses, then the data analysis itself satisfies
+$(N, \epsilon)$-limited-precision local privacy. If $\|y\|_1 \leq N$
+for all $y \in \mathcal{Y}$, then $(N, \epsilon)$-limited-precision
+local privacy implies $\epsilon$-local privacy.
+\end{definition}
+
+Similar to profile-based privacy~\cite{GC19}, LPLP generalizes local
+privacy by allowing the flexibility to specify pairs of inputs that
+should be made indistinguishable.
+
+
+  \textbf{Bayesian inference} \swedit{derives or approximates} the posterior
   distribution $P(Z\,|\,Y)$ of latent variables $Z$ given data $Y$. This is
   most often performed using Markov chain Monte Carlo (MCMC) or mean-field
   coordinate ascent variational inference (CAVI). An MCMC inference algorithm
