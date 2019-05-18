@@ -102,6 +102,12 @@
 \newtheorem{proposition}{Proposition}
 
 
+
+\usepackage[]{color-edits}
+%\usepackage[suppress]{color-edits}
+\addauthor{sw}{blue}
+
+
 \title{A Variational Approach for Locally Private Inference of Poisson Factorization Models}
 
 \author{} % LEAVE BLANK FOR ORIGINAL SUBMISSION.
@@ -115,9 +121,9 @@
 \maketitle
 
 \begin{abstract}
-  Recent work \cite{schein2018locally} introduces a method for locally private
+  Recent work \swedit{by} \cite{schein2018locally} introduces a method for locally private
   posterior inference in Poisson factorization models of count data. This method
-  first adds differentially private noise to the sensitive count data and then
+  first adds \swedit{two-sided geometric} noise to the sensitive count data and then
   performs noise-aware MCMC inference wherein values of the sensitive data are
   sampled as latent variables. This sampling-based method can be prohibitively
   slow for high-dimensional, large-scale data sets such as text corpora or
@@ -154,31 +160,52 @@
   % \citep{yuan2000bessel}, and Poisson distributions; we note that these new
   % results may be of independent interest in other contexts.
 
-  Poisson factorization models are a powerful tool in social science and machine
-  learning to understand patterns in human behavior. For instance, a corporate
-  email corpus surfaces count data such as interactions between parties, counts
-  of words in documents, and logs of events and their participants. However,
-  these data may also encode interactions and content that their human
-  generators wish to keep private. Models of these data risk leaking information
-  specific to a few interactions.
+  Poisson factorization models are a powerful tool in social science
+  and machine learning to understand patterns in human behavior. For
+  instance, a corporate email corpus surfaces count data such as
+  interactions between parties, counts of words in documents, and logs
+  of events and their participants. \swedit{However, these data about
+  interactions and content often contain highly sensitive information,
+  and the models can potentially reveal private information specific
+  to a few individual humans in the data set.}
+
+
+  \swdelete{However, these data may also encode interactions and
+    content that their human generators wish to keep private. Models
+    of these data risk leaking information specific to a few
+    interactions.}
   
-  Most existing work on private inference of statistical models operates in the
-  \emph{central model} \citep{park2016private,bernstein2018differentially}, in
-  which a trusted entity collects all the data and perturbs it to ensure
-  privacy. In contrast, recent work by \cite{schein2018locally} provides a
-  privacy-preserving method for Poisson factorization models in the \emph{local
-  model}, in which individual users perturb their own data to ensure privacy
-  without relying on any trusted party. The authors provide a modified privacy
-  guarantee called called \textit{limited-precision local privacy} that
-  generalizes local differential privacy \citep{warner1965randomized}.
-  Limited-precision local privacy scales a differential privacy guarantee to
-  some maximum magnitude of difference between datasets.
-  \cite{schein2018locally} demonstrate a corresponding MCMC procedure for
-  inference of quality Poisson factorization models through recharacterization
-  of the traditional data generative process to include the addition of
-  perturbation through two-sided geometric noise \citep{ghosh2012universally}.
-  In this procedure, the true data is described as an intermediate latent
-  variable in a larger generative process relying on Skellam and Bessel
+
+  \swedit{Our work aims to provide privacy-preserving inference
+    methods for Poisson factorization subject to the constraint of
+    \emph{differential privacy}~\citep{dwork2006calibrating}.} Most
+  existing work on \swedit{differentially} private inference of
+  statistical models operates in the \emph{central model}
+  \citep{park2016private,bernstein2018differentially}, in which a
+  trusted entity collects all the data and perturbs it to ensure
+  privacy. In contrast, recent work by \cite{schein2018locally}
+  provides a private method for Poisson factorization models in the
+  \emph{local model}, in which individual users perturb their own data
+  to ensure privacy without relying on any trusted party. The authors
+  provide a modified privacy guarantee called called
+  \textit{limited-precision local privacy} (LPLP) that generalizes
+  local differential privacy \citep{warner1965randomized}.
+  \swedit{While the standard notion of local privacy requires that any
+    arbitrary pair of observations need to be indistinguishable under
+    the privacy mechanism, LPLP enforces the indistinguishability
+    among pairs of observations that are within a specified
+    distance. The relaxation of LPLP enables the flexibility to
+    control the granularity of privacy protection (e.g. the number of
+    word tokens in a document) and offer a wider range of
+    privacy-utility trade-offs. Under LPLP, } \swdelete{scales a
+    differential privacy guarantee to some maximum magnitude of
+    difference between datasets.} \cite{schein2018locally} demonstrate
+  a MCMC procedure for inference of quality Poisson factorization
+  models through recharacterization of the traditional data generative
+  process to include the addition of perturbation through two-sided
+  geometric noise \citep{ghosh2012universally}.\swcomment{a bit mouthful; what does ``quality'' mean?}  In this procedure,
+  the true data is described as an intermediate latent variable in a
+  larger generative process relying on Skellam and Bessel
   distributions.
   
   Though this prior work has promising implications for future study of private
@@ -694,3 +721,8 @@ This second factorization enables direct closed-form inference: unlike in
   \bibliography{neurips_2019}
   
 \end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
