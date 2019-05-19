@@ -27,7 +27,7 @@
 \usepackage{microtype}      % microtypography
 \usepackage{color}
 
-\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{amsmath,amssymb,amsfonts,amsthm,mdframed,relsize}
 \usepackage{graphicx}
 \usepackage{bbm}
 \usepackage{latexsym}
@@ -256,7 +256,7 @@ of differential privacy, in which the inference algorithm sees only
 privatized versions of the observations, constructed by adding noise
 from specific distributions. The process of adding noise is known as
 randomized response. We say that a randomized
-a randomized response method $\mathcal{R}(\cdot)$ is $\epsilon$-private if for all pairs of observations $y, y' \in \mathcal{Y}$\looseness=-1
+a randomized response method $\mathcal{R}(\cdot)$ is $\epsilon$-private if for all pairs of observations $y, y'$\looseness=-1
 \begin{equation}
   \label{eqn:local_privacy}
     P\left(\mathcal{R}(y) \in \mathcal{S}\right) \leq e^\epsilon
@@ -294,9 +294,9 @@ observations $y, y' \in \mathcal{Y}$ such that $\|y - y'\|_1 \leq N$
 for all subsets $\mathcal{S}$ in the range of $\mathcal{R}(\cdot)$.
 If a data analysis algorithm sees only the observations' $(N,
 \epsilon)$-private responses, then the data analysis itself satisfies
-$(N, \epsilon)$-limited-precision local privacy. If $\|y\|_1 \leq N$
-for all $y \in \mathcal{Y}$, then $(N, \epsilon)$-limited-precision
-local privacy implies $\epsilon$-local privacy.
+$(N, \epsilon)$-limited-precision local privacy. % If $\|y\|_1 \leq N$
+% for all $y \in \mathcal{Y}$, then $(N, \epsilon)$-limited-precision
+% local privacy implies $\epsilon$-local privacy.
 \end{definition}
 
 Similar to profile-based privacy~\cite{GC19}, LPLP generalizes local
@@ -381,18 +381,23 @@ should be made indistinguishable.
       \Eq{\ysk}=\ys\frac{\Gq{\musk}}{\sum_{k'=1}^K \Gq{\mu_{\subs k'}}}.
   \end{equation}
   
-  \textbf{Locally private MCMC for Poisson factorization}. In locally private
-  Poisson factorization, the true data count $\ys$ is unobserved. Instead, we
-  observe a noised version of it $\ytPM = \taus + \ys$ where $\taus \sim
-  \Geo{\alpha_{\subs}}$ is a randomizing distribution giving a guarantee of
-  differential privacy. Following \cite{schein2018locally}, we use a two-sided
-  geometric random variable generated based on privacy parameter $\alpha_{\subs} \in [0,1]$.
-  The authors demonstrate that such perturbation mechanism satisfies $(N, N
-  \ln(1/\alpha_{\subs}))$-limited-precision local privacy.\footnote{A local
-  randomizer $R$ satisfies $(N, \epsilon)$-limited-precision local privacy if
-  for any two observations $y,y'\in \mathbb{N}^d$ such that $\|y-y'\|_1\leq N$,
-  $R$ satisfies $\Pr[R(y) = r] \leq \exp(\epsilon)\Pr[R(y') = r]$ for any $r$ in
-  the output range.} Their protocol in this case proceeds by treating the true data $\ys$
+  \textbf{Locally private MCMC for Poisson factorization}. \swcomment{the following is not really about private MCMC; more about how we use prior work to set up the CAVI algo...} In locally
+  private Poisson factorization, the true data count $\ys$ is
+  unobserved. Instead, we observe a noised version given by the
+  two-sided geometric mechanism~\citep{ghosh2012universally}:
+  $\ytPM = \taus + \ys$ with $\taus$ drawn from the two-sided
+  geometric distribution $\Geo{\alpha_{\subs}}$. Following
+  \cite{schein2018locally}, we use a two-sided geometric random
+  variable generated based on privacy parameter
+  $\alpha_{\subs} \in [0,1]$.  The authors demonstrate that such
+  perturbation mechanism satisfies
+  $(N, N \ln(1/\alpha_{\subs}))$-limited-precision local
+  privacy.% \footnote{A local
+  % randomizer $R$ satisfies $(N, \epsilon)$-limited-precision local privacy if
+  % for any two observations $y,y'\in \mathbb{N}^d$ such that $\|y-y'\|_1\leq N$,
+  % $R$ satisfies $\Pr[R(y) = r] \leq \exp(\epsilon)\Pr[R(y') = r]$ for any $r$ in
+  % the output range.}
+Their protocol in this case proceeds by treating the true data $\ys$
   itself as a latent variable and re-sampling it from its complete conditional.
 
   To find a variational inference algorithm, we leverage existing equivalent
@@ -422,7 +427,7 @@ should be made indistinguishable.
   while the latter sub-counts correspond to each latent component in non-private
   Poisson factorization.
 
-To infer LPBPF, one may first infer the sums of Poisson distributions of the
+To infer LPBPF,\swcomment{we never define this term...} one may first infer the sums of Poisson distributions of the
 underlying data, then thin them using multinomial and binomial draws. In these
 equations, delta functions $\mathbbm{1}\left( \cdot \right)$ describe
 mathematical constraints that must be met deterministically by auxiliary variables. Some distributions have their own implicit
@@ -471,7 +476,49 @@ This second factorization enables direct closed-form inference: unlike in
   having a good direct estimate of $\ys$. This last factorization that
   enables us to derive the variational distribution.
 
-  
+  \swcomment{the text above is a big wave of math, with several definitions missing (e.g. bessel, skellam). it's a bit hard to read through the text. the table from the previous paper might be useful for exposition (attached below in case it's useful)}
+
+\begin{figure*}[t]
+\begin{mdframed}
+  \begin{minipage}[l]{0.15\linewidth}
+    \textbf{Process 1}
+    \begin{align*}
+      &\textrm{---}\hfill\\
+      &\tau_{n} \sim \textrm{2Geo}(\alpha) \\
+      &y_{n} \sim \textrm{Pois}(\mu_{n}) \\
+      &\tilde{y}^{(\pm)}_{n} := y_{n} + \tau_{n}
+      \end{align*}
+    \end{minipage}\hfill
+  \begin{minipage}[l]{0.3\linewidth}
+    \textbf{Process 2}
+    \begin{align*}
+      &\lambda_{n1},\lambda_{n2} \sim
+      \textrm{Exp}(\mathsmaller{\frac{\alpha}{1-\alpha}})\\
+      &g_{nl} \sim \textrm{Pois}(\lambda_{nl}) \textrm{ for } l \in
+      \{1,2\} \\
+      &y_{n} \sim \textrm{Pois}(\mu_{n}) \\
+      &\tilde{y}^{(\pm)}_{n} := y_{n} + g_{n1} - g_{n2}
+      \end{align*}
+    \end{minipage}\hfill
+  \begin{minipage}[l]{0.3\linewidth}
+    \textbf{Process 3}
+    \begin{align*}
+      &\lambda_{n1},\lambda_{n2} \sim
+      \textrm{Exp}(\mathsmaller{\frac{\alpha}{1-\alpha}})\\
+      &\textrm{---}\hfill\\
+      &\textrm{---}\hfill\\
+      &\tilde{y}^{(\pm)}_{n} \sim \text{Skel}(\lambda_{n1} \!+\!
+      \mu_{n}, \, \lambda_{n2})
+      \end{align*}
+    \end{minipage}
+  \end{mdframed}
+  \vspace{-0.5em}
+\caption{\label{fig:three_ways}Three equivalent ways to generate $\tilde{y}^{(\pm)}_{n}$.}
+\vspace{-0.5em}
+\end{figure*}
+
+
+
   \section{Locally private variational inference for Poisson factorization}
   In this section we describe the challenges to deriving CAVI for locally
   private Poisson factorization and sketch our solutions. In CAVI, we look to
@@ -491,7 +538,7 @@ This second factorization enables direct closed-form inference: unlike in
   distribution, which would make it a poor candidate for developing a
   variational distribution. However, we are able to demonstrate that when one of
   the two Bessel parameters, $\nu$, is fixed, a Bessel distribution is
-  exponential family. As $nu$ is observed as a function of the privacy level
+  exponential family. As $\nu$ is observed as a function of the privacy level
   $\alpha$, this property is satisfied, so the constrained Bessel distribution
   will be sufficient for inference.
 
@@ -501,7 +548,7 @@ This second factorization enables direct closed-form inference: unlike in
   distribution $m \sim \Bess{\nu, a}$ for fixed $\nu$ is an exponential family
   with sufficient statistic $T_{\nu}(m) \teq 2m \tp \nu$, natural parameter
   $\eta_{\nu}(m)\teq \log(\frac{a}{2})$, and base measure $h_{\nu}(m) \teq
-  \frac{1}{m!\Gamma(m\tp\nu\tp 1)}$. \looseness=-1
+  \frac{1}{m!\Gamma(m\tp\nu\tp 1)}$.\swcomment{what's $\Gamma$?} \looseness=-1
   \end{proposition}
   
   \begin{proposition} The optimal variational distribution for $\ms$ is a Bessel
